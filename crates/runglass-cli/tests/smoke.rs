@@ -99,6 +99,7 @@ fn smoke_run_export_bundle_list_snapshot_and_doctor() {
         String::from_utf8_lossy(&doctor.stderr)
     );
     assert!(String::from_utf8_lossy(&doctor.stdout).contains("RunGlass Doctor"));
+    assert!(String::from_utf8_lossy(&doctor.stdout).contains("Platform"));
 
     fs::remove_dir_all(root).ok();
 }

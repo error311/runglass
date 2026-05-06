@@ -14,6 +14,8 @@ use runglass_core::{
 };
 use runglass_web::{serve_report, write_standalone_html};
 
+const UNSUPPORTED_PLATFORM_MESSAGE: &str = "RunGlass command observation is Linux-first in this release.\nThis platform is not supported yet.";
+
 #[derive(Debug, Parser)]
 #[command(
     name = "runglass",
@@ -173,6 +175,7 @@ fn main() -> Result<()> {
 }
 
 fn run_command(command: Vec<String>, open: bool, deep: bool) -> Result<()> {
+    ensure_observation_supported()?;
     let mode = if deep {
         ObservationMode::Deep
     } else {
@@ -323,7 +326,12 @@ fn risk_level_label(risk: &RiskLevel) -> &'static str {
 
 fn doctor() -> Result<()> {
     println!("RunGlass Doctor");
-    print_check("Platform", std::env::consts::OS, cfg!(target_os = "linux"));
+    let platform_supported = observation_supported();
+    print_check("Platform", std::env::consts::OS, platform_supported);
+    if !platform_supported {
+        println!();
+        println!("{}", unsupported_platform_message());
+    }
     print_check(
         "Reports directory",
         &reports_dir()?.display().to_string(),
@@ -334,18 +342,36 @@ fn doctor() -> Result<()> {
         &human_size(snapshot_file_byte_limit()),
         snapshot_file_byte_limit() > 0,
     );
-    print_check("ss", "socket sampling helper", command_on_path("ss"));
-    print_check(
-        "strace",
-        "deep mode tracing helper",
-        command_on_path("strace"),
-    );
+    if platform_supported {
+        print_check("ss", "socket sampling helper", command_on_path("ss"));
+        print_check(
+            "strace",
+            "deep mode tracing helper",
+            command_on_path("strace"),
+        );
+    }
     print_check("docker", "Docker diff support", command_on_path("docker"));
     println!();
     println!(
         "Tip: run `runglass snapshot --dry-run` inside a project to preview file capture scope."
     );
     Ok(())
+}
+
+fn ensure_observation_supported() -> Result<()> {
+    if observation_supported() {
+        Ok(())
+    } else {
+        Err(anyhow!(unsupported_platform_message()))
+    }
+}
+
+fn observation_supported() -> bool {
+    cfg!(target_os = "linux")
+}
+
+fn unsupported_platform_message() -> &'static str {
+    UNSUPPORTED_PLATFORM_MESSAGE
 }
 
 fn print_check(name: &str, detail: &str, ok: bool) {
@@ -568,7 +594,7 @@ fn resolve_receipt(selector: &str) -> Result<RunReport> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cli, Commands};
+    use super::{unsupported_platform_message, Cli, Commands};
     use clap::Parser;
 
     #[test]
@@ -593,5 +619,12 @@ mod tests {
         };
         assert!(!open);
         assert!(no_open);
+    }
+
+    #[test]
+    fn unsupported_platform_message_is_clear() {
+        let message = unsupported_platform_message();
+        assert!(message.contains("Linux-first"));
+        assert!(message.contains("not supported yet"));
     }
 }

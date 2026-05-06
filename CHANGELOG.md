@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.1 - Unreleased
+
+- Added clearer Linux-first platform messaging for command observation.
+- `runglass run ...` now exits cleanly on unsupported platforms instead of attempting partial observation.
+- `runglass doctor` now reports unsupported platforms explicitly while keeping non-observation diagnostics available.
+
 ## v0.1.0 - Initial Release
 
 RunGlass is now available as a Linux-first local command receipt tool.
