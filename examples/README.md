@@ -98,4 +98,13 @@ Use this when you want a receipt for:
 - before/after test output
 - exported receipts you can paste into issues, docs, or handoffs
 
+## CI Receipts
+
+`examples/ci` includes starter GitHub Actions and GitLab CI jobs for running a command through `runglass ci` and uploading the generated receipt directory as an artifact.
+
+Use these when you want remote runners or agent jobs to leave behind:
+- HTML, Markdown, and JSON receipts
+- a compact CI summary
+- a failing job status when the wrapped command fails
+
 Receipts themselves are not committed here. RunGlass generates them locally because they depend on your machine, Docker state, installed tools, working directory, and command output.

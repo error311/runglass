@@ -1,0 +1,26 @@
+name: RunGlass Receipt
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  receipt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install RunGlass
+        run: cargo install runglass --locked
+
+      - name: Run command with a receipt
+        run: |
+          runglass ci --provider github --deep --out runglass-receipt -- \
+            codex exec "fix this failing test"
+
+      - name: Upload RunGlass receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runglass-receipt
+          path: runglass-receipt/

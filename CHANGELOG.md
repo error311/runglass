@@ -1,10 +1,14 @@
 # Changelog
 
-## v0.1.1 - Unreleased
+## v0.1.1 - 05/06/2026
 
 - Added clearer Linux-first platform messaging for command observation.
 - `runglass run ...` now exits cleanly on unsupported platforms instead of attempting partial observation.
 - `runglass doctor` now reports unsupported platforms explicitly while keeping non-observation diagnostics available.
+- Added `runglass ci` for GitHub Actions, GitLab CI, and generic remote runners.
+- CI mode writes HTML, Markdown, JSON, and summary artifacts before returning the wrapped command's exit code.
+- Added starter GitHub Actions and GitLab CI receipt workflow examples.
+- Refined the web UI with a more restrained receipt-tool visual style and fewer decorative gradients/glows.
 
 ## v0.1.0 - Initial Release
 

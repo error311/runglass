@@ -67,10 +67,8 @@
   margin-top: 6px;
   padding: 14px;
   border-radius: 16px;
-  border: 1px solid rgba(113, 143, 246, 0.2);
-  background:
-    radial-gradient(circle at top right, rgba(78, 210, 255, 0.1), transparent 34%),
-    rgba(12, 22, 39, 0.74);
+  border: 1px solid rgba(113, 143, 246, 0.16);
+  background: rgba(12, 22, 39, 0.74);
   display: grid;
   gap: 12px;
 }
@@ -142,9 +140,7 @@
   padding: 18px;
   border-radius: 22px;
   border: 1px solid rgba(113, 143, 246, 0.2);
-  background:
-    radial-gradient(circle at top left, rgba(47, 165, 255, 0.12), transparent 30%),
-    linear-gradient(180deg, rgba(14, 25, 44, 0.84), rgba(9, 17, 31, 0.7));
+  background: rgba(12, 21, 35, 0.78);
   display: grid;
   gap: 14px;
 }

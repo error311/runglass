@@ -87,6 +87,37 @@ fn smoke_run_export_bundle_list_snapshot_and_doctor() {
     let bundle_path = String::from_utf8_lossy(&export.stdout).trim().to_string();
     assert!(PathBuf::from(bundle_path).exists());
 
+    let ci_out = work.join("ci-receipt");
+    let ci_out_arg = ci_out.to_string_lossy().to_string();
+    let ci = Command::new(runglass_bin())
+        .env("RUNGLASS_DATA_HOME", &data)
+        .current_dir(&work)
+        .args([
+            "ci",
+            "--provider",
+            "generic",
+            "--out",
+            ci_out_arg.as_str(),
+            "--format",
+            "html,json,markdown",
+            "--",
+            "sh",
+            "-c",
+            "printf ci > ci.txt",
+        ])
+        .output()
+        .expect("ci command");
+    assert!(
+        ci.status.success(),
+        "{}",
+        String::from_utf8_lossy(&ci.stderr)
+    );
+    assert!(ci_out.join("receipt.html").exists());
+    assert!(ci_out.join("receipt.json").exists());
+    assert!(ci_out.join("receipt.md").exists());
+    assert!(ci_out.join("summary.md").exists());
+    assert!(String::from_utf8_lossy(&ci.stdout).contains("Created CI receipt"));
+
     let doctor = Command::new(runglass_bin())
         .env("RUNGLASS_DATA_HOME", &data)
         .current_dir(&work)

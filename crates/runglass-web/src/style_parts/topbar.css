@@ -93,8 +93,7 @@
   padding: 13px 14px;
   border-radius: 16px;
   border: 1px solid rgba(100, 128, 186, 0.16);
-  background:
-    linear-gradient(180deg, rgba(15, 27, 47, 0.82), rgba(9, 17, 31, 0.68));
+  background: rgba(12, 21, 35, 0.74);
   text-align: left;
   display: grid;
   gap: 5px;
@@ -103,9 +102,8 @@
 
 .insight-card:hover {
   transform: translateY(-1px);
-  border-color: rgba(136, 166, 232, 0.32);
-  background:
-    linear-gradient(180deg, rgba(19, 34, 58, 0.94), rgba(10, 19, 34, 0.82));
+  border-color: rgba(136, 166, 232, 0.24);
+  background: rgba(14, 24, 40, 0.9);
 }
 
 .insight-card.files { box-shadow: inset 3px 0 0 rgba(123, 147, 255, 0.68); }
@@ -140,16 +138,16 @@
 .headline-command {
   display: block;
   padding: 14px 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(103, 129, 186, 0.2);
-  background:
-    linear-gradient(180deg, rgba(16, 28, 49, 0.62), rgba(11, 21, 38, 0.82));
-  box-shadow: inset 0 1px 0 rgba(143, 176, 255, 0.06);
+  border-radius: 16px;
+  border: 1px solid rgba(103, 129, 186, 0.18);
+  background: rgba(7, 13, 23, 0.76);
+  box-shadow: inset 4px 0 0 rgba(121, 153, 214, 0.2);
   color: #f4f7ff;
+  font-family: "Berkeley Mono", "SFMono-Regular", Consolas, monospace;
   font-size: clamp(28px, 3.4vw, 48px);
-  font-weight: 700;
-  line-height: 1.06;
-  letter-spacing: -0.04em;
+  font-weight: 650;
+  line-height: 1.12;
+  letter-spacing: -0.055em;
   overflow-wrap: anywhere;
   text-wrap: pretty;
 }
@@ -200,7 +198,7 @@
 .receipt-meta-copy {
   padding: 14px 16px;
   border-radius: 16px;
-  background: rgba(13, 22, 38, 0.72);
+  background: rgba(12, 20, 33, 0.78);
   border: 1px solid rgba(92, 118, 164, 0.16);
   display: grid;
   gap: 10px;
@@ -227,7 +225,7 @@
 .run-composer {
   padding: 12px 14px;
   border-radius: 16px;
-  background: rgba(13, 22, 38, 0.72);
+  background: rgba(12, 20, 33, 0.78);
   border: 1px solid rgba(92, 118, 164, 0.16);
 }
 
@@ -318,15 +316,20 @@
   min-height: 44px;
   border-radius: 12px;
   border: 1px solid rgba(131, 156, 255, 0.18);
-  background: rgba(11, 18, 32, 0.62);
-  box-shadow: var(--shadow);
+  background: rgba(13, 22, 36, 0.76);
+  box-shadow: var(--shadow-soft);
   font-size: 15px;
   font-weight: 500;
   transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
 }
 
 .action-btn.primary {
-  background: linear-gradient(135deg, #4762f6, #675bff);
+  background: #315aa7;
+  border-color: rgba(151, 181, 255, 0.24);
+  color: #f4f8ff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    var(--shadow-soft);
 }
 
 .action-btn:hover,
@@ -385,7 +388,7 @@
   border: 1px solid rgba(99, 122, 167, 0.2);
   background: rgba(10, 18, 32, 0.94);
   color: #dce6fb;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-soft);
   line-height: 1.45;
 }
 

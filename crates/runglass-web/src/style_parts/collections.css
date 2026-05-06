@@ -98,7 +98,7 @@
 
 .file-select.active {
   border-color: rgba(112, 145, 246, 0.58);
-  background: linear-gradient(180deg, rgba(59, 88, 214, 0.78), rgba(37, 54, 128, 0.96));
+  background: #315aa7;
 }
 
 .file-select-note {

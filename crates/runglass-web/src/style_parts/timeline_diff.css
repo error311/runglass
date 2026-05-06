@@ -15,7 +15,7 @@
   top: 4px;
   bottom: 8px;
   width: 2px;
-  background: linear-gradient(180deg, rgba(100, 141, 226, 0.5), rgba(68, 98, 153, 0.12));
+  background: rgba(106, 128, 166, 0.22);
 }
 
 .timeline-row {
@@ -216,12 +216,12 @@
 
 .timeline-panel .timeline-row.clickable:hover {
   border-color: rgba(132, 163, 233, 0.28);
-  background: rgba(20, 35, 62, 0.9);
+  background: rgba(17, 29, 47, 0.92);
 }
 
 .timeline-panel .timeline-row.selected {
-  border-color: rgba(132, 163, 233, 0.34);
-  background: rgba(24, 40, 69, 0.96);
+  border-color: rgba(132, 163, 233, 0.3);
+  background: rgba(18, 31, 50, 0.96);
 }
 
 .network-mini-icon {

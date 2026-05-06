@@ -1,11 +1,11 @@
 :root {
-  --bg: #07111f;
-  --bg-top: #0b182d;
-  --sidebar: rgba(5, 14, 28, 0.94);
-  --panel: rgba(10, 20, 36, 0.86);
-  --panel-strong: rgba(12, 24, 42, 0.96);
-  --border: rgba(82, 114, 173, 0.24);
-  --border-strong: rgba(101, 143, 226, 0.34);
+  --bg: #070d16;
+  --bg-top: #0a1322;
+  --sidebar: rgba(6, 12, 21, 0.97);
+  --panel: rgba(11, 18, 30, 0.92);
+  --panel-strong: rgba(13, 21, 34, 0.98);
+  --border: rgba(105, 126, 161, 0.2);
+  --border-strong: rgba(129, 151, 190, 0.28);
   --text: #edf3ff;
   --muted: #9ba8c1;
   --muted-2: #7f8ba5;
@@ -16,7 +16,8 @@
   --red: #f16b71;
   --orange: #ff9d57;
   --cyan: #4ed2ff;
-  --shadow: 0 22px 70px rgba(2, 7, 18, 0.5);
+  --shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+  --shadow-soft: 0 1px 0 rgba(255, 255, 255, 0.025), 0 10px 24px rgba(0, 0, 0, 0.18);
   --radius: 24px;
 }
 
@@ -26,9 +27,8 @@ body {
   font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(86, 115, 255, 0.20), transparent 28%),
-    radial-gradient(circle at top right, rgba(52, 196, 255, 0.12), transparent 26%),
-    linear-gradient(180deg, var(--bg-top), var(--bg));
+    linear-gradient(180deg, rgba(14, 24, 40, 0.96), rgba(7, 13, 22, 1) 440px),
+    var(--bg);
 }
 
 a { color: inherit; text-decoration: none; }

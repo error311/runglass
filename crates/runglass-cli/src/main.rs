@@ -1,16 +1,17 @@
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::process;
 
 use anyhow::{anyhow, Result};
 use chrono::Utc;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use runglass_core::{
     apply_revert, delete_report, fixture, latest_report, list_reports, load_report, make_run_id,
     prepare_run_paths, preview_revert, prune_reports, render_markdown_receipt,
     render_reverse_patch, report_run_dir, reports_dir, run_observed_command_in_mode,
     snapshot_directory_with_stats, snapshot_file_byte_limit, write_report_bundle, ObservationMode,
-    RevertConflictPolicy, RevertOptions, RiskLevel, RunReport,
+    RevertConflictPolicy, RevertOptions, RiskLevel, RunReport, RunStatus,
 };
 use runglass_web::{serve_report, write_standalone_html};
 
@@ -34,6 +35,23 @@ enum Commands {
         open: bool,
         #[arg(long)]
         deep: bool,
+        #[arg(required = true, num_args = 1.., allow_hyphen_values = true)]
+        command: Vec<String>,
+    },
+    Ci {
+        #[arg(long)]
+        deep: bool,
+        #[arg(long, value_enum, default_value_t = CiProvider::Auto)]
+        provider: CiProvider,
+        #[arg(long, default_value = "runglass-receipt")]
+        out: PathBuf,
+        #[arg(
+            long = "format",
+            value_enum,
+            value_delimiter = ',',
+            default_value = "html,json,markdown"
+        )]
+        formats: Vec<CiFormat>,
         #[arg(required = true, num_args = 1.., allow_hyphen_values = true)]
         command: Vec<String>,
     },
@@ -103,6 +121,26 @@ enum Commands {
     },
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum CiProvider {
+    Auto,
+    Github,
+    Gitlab,
+    Generic,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum CiFormat {
+    Html,
+    Json,
+    Markdown,
+}
+
+struct CiArtifact {
+    label: &'static str,
+    path: PathBuf,
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -112,6 +150,13 @@ fn main() -> Result<()> {
             deep,
             command,
         } => run_command(command, open, deep),
+        Commands::Ci {
+            deep,
+            provider,
+            out,
+            formats,
+            command,
+        } => ci_command(command, deep, provider, &out, &formats),
         Commands::Report {
             run_id,
             print_json,
@@ -191,6 +236,239 @@ fn run_command(command: Vec<String>, open: bool, deep: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn ci_command(
+    command: Vec<String>,
+    deep: bool,
+    provider: CiProvider,
+    out: &Path,
+    formats: &[CiFormat],
+) -> Result<()> {
+    ensure_observation_supported()?;
+    if formats.is_empty() {
+        return Err(anyhow!("at least one --format is required"));
+    }
+
+    let mode = if deep {
+        ObservationMode::Deep
+    } else {
+        ObservationMode::Normal
+    };
+    let provider = detect_ci_provider(provider);
+    let (report, _paths) = run_observed_command_in_mode(command, mode)?;
+    let artifacts = write_ci_artifacts(&report, out, formats)?;
+    let summary = render_ci_summary(&report, provider, &artifacts);
+    let summary_path = out.join("summary.md");
+    fs::write(&summary_path, &summary)?;
+
+    println!("Created CI receipt {}", report.run.id);
+    println!("{}", out.display());
+    println!();
+    print!("{summary}");
+
+    if matches!(provider, CiProvider::Github) {
+        append_github_step_summary(&summary)?;
+    }
+
+    if let Some(code) = report.run.exit_code {
+        if code != 0 {
+            process::exit(normalize_exit_code(code));
+        }
+    } else if !matches!(report.run.status, RunStatus::Completed) {
+        process::exit(1);
+    }
+
+    Ok(())
+}
+
+fn write_ci_artifacts(
+    report: &RunReport,
+    out: &Path,
+    formats: &[CiFormat],
+) -> Result<Vec<CiArtifact>> {
+    fs::create_dir_all(out)?;
+    let mut artifacts = Vec::new();
+
+    if formats.contains(&CiFormat::Html) {
+        let path = out.join("receipt.html");
+        write_standalone_html(report, &path)?;
+        artifacts.push(CiArtifact {
+            label: "HTML receipt",
+            path,
+        });
+    }
+
+    if formats.contains(&CiFormat::Json) {
+        let path = out.join("receipt.json");
+        fs::write(&path, serde_json::to_vec_pretty(report)?)?;
+        artifacts.push(CiArtifact {
+            label: "JSON receipt",
+            path,
+        });
+    }
+
+    if formats.contains(&CiFormat::Markdown) {
+        let path = out.join("receipt.md");
+        fs::write(&path, render_markdown_receipt(report))?;
+        artifacts.push(CiArtifact {
+            label: "Markdown receipt",
+            path,
+        });
+    }
+
+    Ok(artifacts)
+}
+
+fn detect_ci_provider(provider: CiProvider) -> CiProvider {
+    match provider {
+        CiProvider::Auto if std::env::var_os("GITHUB_ACTIONS").is_some() => CiProvider::Github,
+        CiProvider::Auto if std::env::var_os("GITLAB_CI").is_some() => CiProvider::Gitlab,
+        CiProvider::Auto => CiProvider::Generic,
+        explicit => explicit,
+    }
+}
+
+fn render_ci_summary(report: &RunReport, provider: CiProvider, artifacts: &[CiArtifact]) -> String {
+    let mut lines = Vec::new();
+    lines.push("## RunGlass CI Receipt".to_string());
+    lines.push(String::new());
+    lines.push(format!(
+        "> {}",
+        concise_receipt_narrative(report, "This command")
+    ));
+    lines.push(String::new());
+    lines.push("| Field | Value |".to_string());
+    lines.push("| --- | --- |".to_string());
+    lines.push(format!(
+        "| Command | `{}` |",
+        escape_markdown_table_cell(&report.run.command_display)
+    ));
+    lines.push(format!("| Receipt ID | `{}` |", report.run.id));
+    lines.push(format!("| Status | {} |", status_label(&report.run.status)));
+    lines.push(format!(
+        "| Exit Code | {} |",
+        report
+            .run
+            .exit_code
+            .map(|code| code.to_string())
+            .unwrap_or_else(|| "n/a".to_string())
+    ));
+    lines.push(format!(
+        "| Risk | {} |",
+        risk_level_label(&report.summary.risk_level)
+    ));
+    lines.push(String::new());
+    lines.push("### What Changed".to_string());
+    lines.push(format!(
+        "- Files: {} created, {} modified, {} deleted.",
+        report.summary.files_created, report.summary.files_modified, report.summary.files_deleted
+    ));
+    lines.push(format!(
+        "- Runtime: {} child processes, {} outbound hosts, {} listening ports.",
+        report.summary.processes_seen, report.summary.network_hosts, report.summary.ports_opened
+    ));
+    lines.push(format!(
+        "- Docker: {} containers, {} images, {} volumes.",
+        report.summary.docker_containers_created,
+        report.summary.docker_images_pulled,
+        report.summary.docker_volumes_created
+    ));
+
+    if !artifacts.is_empty() {
+        lines.push(String::new());
+        lines.push("### Artifacts".to_string());
+        for artifact in artifacts {
+            lines.push(format!(
+                "- {}: `{}`",
+                artifact.label,
+                artifact.path.display()
+            ));
+        }
+        lines.push("- CI summary: `summary.md`".to_string());
+    }
+
+    match provider {
+        CiProvider::Github => {
+            lines.push(String::new());
+            lines.push(
+                "GitHub Actions: upload the output directory with `actions/upload-artifact`."
+                    .to_string(),
+            );
+        }
+        CiProvider::Gitlab => {
+            lines.push(String::new());
+            lines.push(
+                "GitLab CI: publish the output directory with `artifacts:paths`.".to_string(),
+            );
+        }
+        CiProvider::Auto | CiProvider::Generic => {}
+    }
+
+    lines.push(String::new());
+    lines.join("\n")
+}
+
+fn concise_receipt_narrative(report: &RunReport, subject: &str) -> String {
+    let mut clauses = Vec::new();
+    clauses.push(format!(
+        "changed {} file{}",
+        report.summary.files_changed,
+        plural(report.summary.files_changed)
+    ));
+    clauses.push(format!(
+        "observed {} child process{}",
+        report.summary.processes_seen,
+        if report.summary.processes_seen == 1 {
+            ""
+        } else {
+            "es"
+        }
+    ));
+    clauses.push(format!(
+        "contacted {} host{}",
+        report.summary.network_hosts,
+        plural(report.summary.network_hosts)
+    ));
+    clauses.push(format!(
+        "opened {} listening port{}",
+        report.summary.ports_opened,
+        plural(report.summary.ports_opened)
+    ));
+    format!("{subject} {}.", clauses.join(", "))
+}
+
+fn plural(count: usize) -> &'static str {
+    if count == 1 {
+        ""
+    } else {
+        "s"
+    }
+}
+
+fn escape_markdown_table_cell(value: &str) -> String {
+    value.replace('|', "\\|").replace('\n', " ")
+}
+
+fn append_github_step_summary(summary: &str) -> Result<()> {
+    let Some(path) = std::env::var_os("GITHUB_STEP_SUMMARY") else {
+        return Ok(());
+    };
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
+    writeln!(file)?;
+    file.write_all(summary.as_bytes())?;
+    Ok(())
+}
+
+fn normalize_exit_code(code: i32) -> i32 {
+    if (0..=255).contains(&code) {
+        code
+    } else {
+        1
+    }
 }
 
 fn run_demo(open: bool) -> Result<()> {
@@ -321,6 +599,16 @@ fn risk_level_label(risk: &RiskLevel) -> &'static str {
         RiskLevel::Low => "low",
         RiskLevel::Medium => "medium",
         RiskLevel::High => "high",
+    }
+}
+
+fn status_label(status: &RunStatus) -> &'static str {
+    match status {
+        RunStatus::Running => "running",
+        RunStatus::Completed => "completed",
+        RunStatus::Interrupted => "interrupted",
+        RunStatus::FailedToStart => "failed to start",
+        RunStatus::TimedOut => "timed out",
     }
 }
 
@@ -594,7 +882,7 @@ fn resolve_receipt(selector: &str) -> Result<RunReport> {
 
 #[cfg(test)]
 mod tests {
-    use super::{unsupported_platform_message, Cli, Commands};
+    use super::{unsupported_platform_message, CiFormat, CiProvider, Cli, Commands};
     use clap::Parser;
 
     #[test]
@@ -626,5 +914,38 @@ mod tests {
         let message = unsupported_platform_message();
         assert!(message.contains("Linux-first"));
         assert!(message.contains("not supported yet"));
+    }
+
+    #[test]
+    fn ci_accepts_provider_output_formats_and_command() {
+        let cli = Cli::try_parse_from([
+            "runglass",
+            "ci",
+            "--provider",
+            "github",
+            "--out",
+            "receipt-out",
+            "--format",
+            "html,json",
+            "--",
+            "cargo",
+            "test",
+        ])
+        .expect("parse ci command");
+
+        let Commands::Ci {
+            provider,
+            out,
+            formats,
+            command,
+            ..
+        } = cli.command
+        else {
+            panic!("expected ci command");
+        };
+        assert!(matches!(provider, CiProvider::Github));
+        assert_eq!(out, std::path::PathBuf::from("receipt-out"));
+        assert_eq!(formats, vec![CiFormat::Html, CiFormat::Json]);
+        assert_eq!(command, vec!["cargo", "test"]);
     }
 }

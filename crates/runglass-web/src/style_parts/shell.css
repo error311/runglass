@@ -11,8 +11,7 @@
   overflow-x: hidden;
   padding: 22px 16px;
   border-right: 1px solid var(--border);
-  background:
-    linear-gradient(180deg, rgba(8, 17, 32, 0.96), rgba(6, 13, 24, 0.98));
+  background: var(--sidebar);
   box-shadow: inset -1px 0 0 rgba(121, 153, 214, 0.08);
 }
 
@@ -239,8 +238,9 @@
 }
 
 .run-link.active {
-  background: rgba(20, 35, 62, 0.9);
-  border-color: rgba(121, 153, 214, 0.36);
+  background: rgba(17, 29, 47, 0.94);
+  border-color: rgba(121, 153, 214, 0.3);
+  box-shadow: inset 3px 0 0 rgba(121, 153, 214, 0.58);
 }
 
 .run-link:hover {

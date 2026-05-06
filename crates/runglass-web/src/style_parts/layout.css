@@ -44,11 +44,9 @@
     grid-template-rows: auto minmax(0, 1fr);
     overflow: hidden;
     border-color: rgba(106, 135, 205, 0.24);
-    background:
-      radial-gradient(circle at top, rgba(44, 72, 132, 0.14), transparent 48%),
-      rgba(12, 21, 37, 0.9);
+    background: rgba(12, 20, 33, 0.94);
     box-shadow:
-      0 20px 50px rgba(4, 8, 17, 0.22),
+      0 12px 30px rgba(4, 8, 17, 0.2),
       inset 0 1px 0 rgba(143, 176, 255, 0.05);
   }
 

@@ -1,0 +1,14 @@
+runglass_receipt:
+  image: rust:latest
+  stage: test
+  before_script:
+    - cargo install runglass --locked
+  script:
+    - |
+      runglass ci --provider gitlab --deep --out runglass-receipt -- \
+        codex exec "fix this failing test"
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - runglass-receipt/
