@@ -1,22 +1,26 @@
 # Changelog
 
-## Unreleased
+## v0.1.0 - Initial Release
 
-### Added
-- Linux `deep` mode using `strace` for stronger short-lived process and outbound socket visibility.
-- Live browser-triggered runs with SSE updates and stop/cancel support.
-- File revert support for observed receipts, including revert preview, selected-file revert, reverse patch export, and changed-since-receipt conflict detection.
-- Markdown export in both the CLI and browser UI.
-- Example workloads for Docker Compose, installer scripts, package installs, and AI-agent CLI flows.
-- Core unit tests for revert behavior, JSON export, Markdown rendering, timeline wording, and risk derivation.
-- Browser automation coverage for summary navigation, live runs, export routes, and revert UI states.
+RunGlass is now available as a Linux-first local command receipt tool.
 
-### Changed
-- Renamed the product framing throughout the UI from generic reports to receipts.
-- Improved receipt wording for summaries, timeline events, risk notes, and Markdown export output.
-- Improved browser UX with stronger focus feedback, styled help overlays, better disabled states, and download-oriented export actions.
-- Split large Rust and embedded frontend files into smaller modules for maintainability.
+This initial release includes:
 
-### Notes
-- `normal` mode remains the default fast path.
-- `deep` mode is Linux-focused and currently depends on `strace`.
+- A Rust CLI for running one command and generating a receipt of what happened.
+- An embedded local web UI for inspecting receipts without a separate frontend server.
+- Live command runs with stdout/stderr previews, status updates, and stop support.
+- Working-directory file snapshots, text diffs, and receipt-aware file revert previews.
+- Process tree, network, listening port, Docker, timeline, and risk sections.
+- `normal` observation mode for fast local receipts.
+- Linux `deep` mode using `strace` for stronger short-lived process and socket visibility.
+- Export support for HTML, Markdown, JSON, bundles, and reverse patches.
+- Recent receipt browsing, search, deletion, and snapshot controls.
+- Example workloads for AI-agent commands, Docker Compose, npm installs, and installer scripts.
+- Brand assets, showcase captures, and GitHub CI for format, clippy, tests, and package checks.
+
+Notes:
+
+- RunGlass is Linux-first for this release.
+- `deep` mode currently depends on `strace`.
+- Docker visibility is based on Docker Engine before/after state.
+- File changes are scoped to the command working directory.

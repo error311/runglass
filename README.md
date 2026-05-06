@@ -6,6 +6,10 @@
 
 RunGlass wraps a command, watches it run, and produces a local receipt you can inspect, export, share, and in many file-change cases revert. It is built for the commands where terminal history is not enough: AI agents, install scripts, package managers, Docker Compose, deploy scripts, and anything else you want an audit trail for.
 
+```bash
+runglass run --deep -- codex exec "fix this failing test"
+```
+
 ![RunGlass full-stack receipt](https://raw.githubusercontent.com/error311/runglass/main/assets/showcase/provision-stack.gif)
 
 [MP4 version](https://raw.githubusercontent.com/error311/runglass/main/assets/showcase/provision-stack.mp4)
@@ -30,6 +34,8 @@ Example receipts:
 - Full-stack flow: [GIF](https://raw.githubusercontent.com/error311/runglass/main/assets/showcase/provision-stack.gif), [MP4](https://raw.githubusercontent.com/error311/runglass/main/assets/showcase/provision-stack.mp4)
 
 ## Install
+
+RunGlass is Linux-first in this release. `normal` mode uses Linux process and socket sources, and `deep` mode uses `strace` when available. macOS and Windows support are not the target for `v0.1.0`.
 
 Build locally:
 
@@ -77,9 +83,9 @@ runglass run --deep -- codex exec "fix this failing test"
 
 ## Why It Exists
 
-Terminal history tells you what you typed.
+Terminal history shows what you ran.
 
-RunGlass tells you what changed because you typed it.
+RunGlass shows what happened.
 
 That matters when a command can create files, edit config, pull images, open ports, phone home, spawn child processes, or leave behind state that is easy to miss.
 
