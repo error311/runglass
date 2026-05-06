@@ -1,0 +1,13 @@
+# RunGlass repo-local receipt exclusions
+# These keep local tooling state and generated artifacts out of receipts
+# when you run RunGlass from the repository root.
+
+.localtesting/
+.runglass/
+tmp-observe/
+*.sqlite
+*.db
+*.tar
+*.tar.gz
+*.qcow2
+*.img

@@ -1,0 +1,38 @@
+@media (max-width: 1400px) {
+  .summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .content-main-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .diff-panel, .output-panel-wide { grid-column: 1 / -1; }
+
+  .headline {
+    margin-top: 8px;
+  }
+
+  .headline-command {
+    font-size: clamp(24px, 3.1vw, 38px);
+    padding: 14px 16px;
+  }
+}
+
+@media (max-width: 1320px) {
+  .topbar-hero-head { grid-template-columns: 1fr; }
+  .hero-actions { max-width: none; justify-content: flex-start; }
+  .topbar-lower { grid-template-columns: 1fr; }
+  .topbar-side { justify-self: stretch; width: 100%; }
+  .receipt-meta-band { grid-template-columns: 1fr; }
+  .actions { justify-content: flex-start; }
+  .insight-rail { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 980px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .main { padding: 18px; }
+  .topbar-side { justify-self: stretch; width: 100%; }
+  .actions { justify-content: flex-start; }
+  .summary-grid, .content-grid, .content-main-grid { grid-template-columns: 1fr; }
+  .run-form { grid-template-columns: 1fr; }
+  .onboarding-cards { grid-template-columns: 1fr; }
+}

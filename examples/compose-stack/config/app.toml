@@ -1,0 +1,3 @@
+name = "runglass-stack"
+mode = "provisioned"
+healthcheck = "enabled"

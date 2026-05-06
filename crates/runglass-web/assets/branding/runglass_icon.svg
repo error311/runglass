@@ -1,0 +1,24 @@
+<svg width="880" height="876" viewBox="0 0 880 876" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ringGradient" x1="46" y1="47" x2="800" y2="822" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2FA5FF"/>
+      <stop offset="1" stop-color="#7659FF"/>
+    </linearGradient>
+    <linearGradient id="paperGradient" x1="238" y1="188" x2="574" y2="662" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#132B52"/>
+      <stop offset="1" stop-color="#2E228C"/>
+    </linearGradient>
+    <linearGradient id="lineGradient" x1="286" y1="244" x2="548" y2="526" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3DB4FF"/>
+      <stop offset="1" stop-color="#8D86FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M674 674L822 822" stroke="url(#ringGradient)" stroke-width="74" stroke-linecap="round"/>
+  <circle cx="417" cy="418" r="397" fill="url(#ringGradient)"/>
+  <circle cx="417" cy="418" r="330" fill="#0B111D"/>
+  <path d="M256 176H579C602.748 176 622 195.252 622 219V632C622 642.764 617.783 653.099 610.255 660.791L594 677.398C586.505 685.056 574.184 685.056 566.689 677.398L555.935 666.411C549.687 660.027 539.416 660.027 533.168 666.411L513.065 686.953C505.57 694.611 493.249 694.611 485.754 686.953L465.651 666.411C459.403 660.027 449.132 660.027 442.884 666.411L422.781 686.953C415.286 694.611 402.965 694.611 395.47 686.953L375.367 666.411C369.119 660.027 358.848 660.027 352.6 666.411L332.497 686.953C325.002 694.611 312.681 694.611 305.186 686.953L285.083 666.411C278.835 660.027 268.564 660.027 262.316 666.411L253.109 675.818C245.633 683.457 233.353 683.48 225.848 675.87L224.738 674.745C217.222 667.125 213 656.85 213 646.15V219C213 195.252 232.252 176 256 176Z" fill="url(#paperGradient)"/>
+  <path d="M287 244L360 317L287 390" stroke="url(#lineGradient)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M398 366H470" stroke="url(#lineGradient)" stroke-width="32" stroke-linecap="round"/>
+  <path d="M288 452H548" stroke="url(#lineGradient)" stroke-width="32" stroke-linecap="round"/>
+  <path d="M288 525H548" stroke="url(#lineGradient)" stroke-width="32" stroke-linecap="round"/>
+</svg>

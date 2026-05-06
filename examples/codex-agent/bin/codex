@@ -1,0 +1,36 @@
+#!/usr/bin/env sh
+set -eu
+
+if [ "${1:-}" != "exec" ]; then
+  printf 'usage: codex exec "task"\n' >&2
+  exit 64
+fi
+
+shift
+task="${*:-fix this failing js script}"
+
+printf 'Codex Exec\n'
+printf 'Task: %s\n' "$task"
+printf 'Inspecting failing JavaScript tests...\n'
+npm test || true
+
+sleep 0.4
+printf 'Found percentage discount bug in src/checkout.js\n'
+printf 'Patching implementation...\n'
+
+cat > src/checkout.js <<'JS'
+export function applyDiscount(subtotal, discountPercent) {
+  const discount = subtotal * (discountPercent / 100);
+  return Number((subtotal - discount).toFixed(2));
+}
+
+export function totalWithTax(subtotal, discountPercent, taxRate) {
+  const discounted = applyDiscount(subtotal, discountPercent);
+  return Number((discounted + (discounted * taxRate)).toFixed(2));
+}
+JS
+
+sleep 0.3
+printf 'Running verification...\n'
+npm test
+printf 'All tests pass. Patched src/checkout.js.\n'

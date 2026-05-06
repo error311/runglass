@@ -1,0 +1,190 @@
+.console {
+  display: grid;
+  gap: 12px;
+}
+
+.output-preview-label {
+  margin-bottom: 8px;
+}
+
+.console pre {
+  margin: 0;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(10, 18, 32, 0.92);
+  border: 1px solid rgba(91, 117, 162, 0.14);
+  color: #cfe0ff;
+  font-family: "Berkeley Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+  overflow: auto;
+}
+.limitations {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.limitations-title {
+  color: #d7e3fb;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.limitations-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.limitations-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(17, 27, 43, 0.6);
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.limitations-item::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: rgba(120, 160, 255, 0.75);
+  box-shadow: 0 0 0 4px rgba(120, 160, 255, 0.08);
+  flex: 0 0 7px;
+}
+
+.snapshot-controls {
+  margin-top: 6px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(113, 143, 246, 0.2);
+  background:
+    radial-gradient(circle at top right, rgba(78, 210, 255, 0.1), transparent 34%),
+    rgba(12, 22, 39, 0.74);
+  display: grid;
+  gap: 12px;
+}
+
+.snapshot-controls-title {
+  color: #dbe8ff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.snapshot-controls-copy {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.snapshot-control-list {
+  display: grid;
+  gap: 8px;
+}
+
+.snapshot-control-item {
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: rgba(17, 29, 50, 0.72);
+  color: #cad8f3;
+  line-height: 1.42;
+}
+
+.workspace-banner {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(93, 118, 166, 0.18);
+  background: rgba(13, 22, 38, 0.72);
+  display: grid;
+  gap: 6px;
+}
+
+.workspace-banner.success {
+  border-color: rgba(89, 219, 136, 0.24);
+  background: rgba(21, 49, 33, 0.28);
+}
+
+.workspace-banner.warning {
+  border-color: rgba(240, 191, 75, 0.24);
+  background: rgba(65, 49, 17, 0.22);
+}
+
+.workspace-banner.info {
+  border-color: rgba(113, 143, 246, 0.24);
+}
+
+.workspace-banner-title {
+  color: #e7efff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.workspace-banner-copy {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.onboarding-panel {
+  margin-bottom: 18px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(113, 143, 246, 0.2);
+  background:
+    radial-gradient(circle at top left, rgba(47, 165, 255, 0.12), transparent 30%),
+    linear-gradient(180deg, rgba(14, 25, 44, 0.84), rgba(9, 17, 31, 0.7));
+  display: grid;
+  gap: 14px;
+}
+
+.onboarding-kicker {
+  color: #91b4ff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.onboarding-title {
+  margin: 5px 0 0;
+  color: #eff6ff;
+  font-size: clamp(20px, 2vw, 28px);
+  letter-spacing: -0.03em;
+}
+
+.onboarding-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.onboarding-card {
+  padding: 13px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(94, 123, 181, 0.16);
+  background: rgba(10, 19, 34, 0.62);
+}
+
+.onboarding-card-title {
+  color: #e5efff;
+  font-weight: 800;
+}
+
+.onboarding-card-detail {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}

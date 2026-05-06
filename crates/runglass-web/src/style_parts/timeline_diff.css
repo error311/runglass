@@ -1,0 +1,233 @@
+.timeline-wrap {
+  display: grid;
+  gap: 12px;
+}
+
+.timeline-stream {
+  position: relative;
+  padding-left: 18px;
+}
+
+.timeline-stream::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 4px;
+  bottom: 8px;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(100, 141, 226, 0.5), rgba(68, 98, 153, 0.12));
+}
+
+.timeline-row {
+  position: relative;
+  background: rgba(15, 27, 47, 0.58);
+  padding-left: 2px;
+}
+
+.timeline-dot {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  margin: 8px 0 0 -13px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(10, 22, 38, 1);
+}
+
+.timeline-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.diff-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.diff-shell {
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(10, 18, 32, 0.9);
+  border: 1px solid rgba(86, 112, 158, 0.16);
+}
+
+.diff-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  color: #c7d4ef;
+  border-bottom: 1px solid rgba(87, 114, 160, 0.18);
+}
+
+.diff-header div {
+  padding: 12px 16px;
+}
+
+.diff-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 64px minmax(0, 1fr);
+  font-family: "Berkeley Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+}
+
+.diff-row.unified {
+  grid-template-columns: 64px 28px minmax(0, 1fr);
+}
+
+.diff-cell, .diff-line {
+  padding: 10px 14px;
+  white-space: pre-wrap;
+}
+
+.diff-line {
+  color: #d7e1f8;
+  border-right: 1px solid rgba(87, 114, 160, 0.08);
+}
+
+.diff-cell {
+  color: #7f8eb2;
+  text-align: right;
+  border-right: 1px solid rgba(87, 114, 160, 0.08);
+}
+
+.diff-marker {
+  padding: 10px 8px;
+  text-align: center;
+  color: #7f8eb2;
+  border-right: 1px solid rgba(87, 114, 160, 0.08);
+}
+
+.diff-row.add .diff-line.after,
+.diff-row.add .diff-cell.after {
+  background: rgba(45, 114, 69, 0.28);
+}
+
+.diff-row.remove .diff-line.before,
+.diff-row.remove .diff-cell.before {
+  background: rgba(124, 43, 53, 0.24);
+}
+
+.diff-row.context .diff-line.before,
+.diff-row.context .diff-line.after {
+  background: rgba(12, 23, 40, 0.45);
+}
+
+.diff-row.unified.add .diff-line.before,
+.diff-row.unified.add .diff-cell.before,
+.diff-row.unified.add .diff-marker {
+  background: rgba(45, 114, 69, 0.28);
+}
+
+.diff-row.unified.remove .diff-line.before,
+.diff-row.unified.remove .diff-cell.before,
+.diff-row.unified.remove .diff-marker {
+  background: rgba(124, 43, 53, 0.24);
+}
+
+.diff-row.unified.context .diff-line.before,
+.diff-row.unified.context .diff-cell.before,
+.diff-row.unified.context .diff-marker {
+  background: rgba(12, 23, 40, 0.45);
+}
+.section-anchor {
+  scroll-margin-top: 22px;
+}
+
+.risk-row {
+  text-align: left;
+}
+
+.risk-copy,
+.timeline-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.risk-title {
+  line-height: 1.15;
+  color: #e4ecff;
+}
+
+.timeline-title {
+  color: #e4ecff;
+  font-size: 21px;
+  line-height: 1.15;
+}
+
+.risk-detail,
+.timeline-detail {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.timeline-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.severity-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid rgba(99, 122, 167, 0.18);
+  background: rgba(20, 29, 47, 0.82);
+}
+
+.severity-pill.info {
+  color: #9fc0ff;
+}
+
+.severity-pill.success {
+  color: #7ef5a9;
+}
+
+.severity-pill.warning {
+  color: #ffd36f;
+}
+
+.severity-pill.danger {
+  color: #ff9c9c;
+}
+
+.row-side {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  align-content: start;
+}
+
+.row-linkhint {
+  color: #9bb6eb;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.timeline-panel .timeline-row {
+  padding: 14px 14px 14px 2px;
+  border-color: rgba(102, 128, 184, 0.16);
+}
+
+.timeline-panel .timeline-row.clickable:hover {
+  border-color: rgba(132, 163, 233, 0.28);
+  background: rgba(20, 35, 62, 0.9);
+}
+
+.timeline-panel .timeline-row.selected {
+  border-color: rgba(132, 163, 233, 0.34);
+  background: rgba(24, 40, 69, 0.96);
+}
+
+.network-mini-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #79a5ff;
+  margin-right: 8px;
+}

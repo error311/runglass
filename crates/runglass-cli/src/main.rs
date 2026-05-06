@@ -1,0 +1,597 @@
+use std::fs;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+
+use anyhow::{anyhow, Result};
+use chrono::Utc;
+use clap::{Parser, Subcommand};
+use runglass_core::{
+    apply_revert, delete_report, fixture, latest_report, list_reports, load_report, make_run_id,
+    prepare_run_paths, preview_revert, prune_reports, render_markdown_receipt,
+    render_reverse_patch, report_run_dir, reports_dir, run_observed_command_in_mode,
+    snapshot_directory_with_stats, snapshot_file_byte_limit, write_report_bundle, ObservationMode,
+    RevertConflictPolicy, RevertOptions, RiskLevel, RunReport,
+};
+use runglass_web::{serve_report, write_standalone_html};
+
+#[derive(Debug, Parser)]
+#[command(
+    name = "runglass",
+    version,
+    about = "Run any command. Get a receipt for what changed."
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Debug, Subcommand)]
+enum Commands {
+    Run {
+        #[arg(long)]
+        open: bool,
+        #[arg(long)]
+        deep: bool,
+        #[arg(required = true, num_args = 1.., allow_hyphen_values = true)]
+        command: Vec<String>,
+    },
+    Report {
+        run_id: String,
+        #[arg(long)]
+        print_json: bool,
+        #[arg(long, help = "Open the local receipt UI in your browser")]
+        open: bool,
+        #[arg(
+            long = "no-open",
+            help = "Serve the receipt UI without opening a browser"
+        )]
+        no_open: bool,
+    },
+    List {
+        #[arg(long)]
+        query: Option<String>,
+        #[arg(long)]
+        risk: Option<String>,
+        #[arg(long)]
+        mode: Option<String>,
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+    },
+    Export {
+        run_id: String,
+        #[arg(long)]
+        html: bool,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        markdown: bool,
+        #[arg(long = "reverse-patch")]
+        reverse_patch: bool,
+        #[arg(long)]
+        bundle: bool,
+    },
+    Doctor,
+    Snapshot {
+        #[arg(long = "dry-run")]
+        dry_run: bool,
+    },
+    Prune {
+        #[arg(long, default_value_t = 50)]
+        keep: usize,
+        #[arg(long = "dry-run")]
+        dry_run: bool,
+    },
+    Delete {
+        run_id: String,
+    },
+    Revert {
+        run_id: String,
+        #[arg(long = "file")]
+        files: Vec<String>,
+        #[arg(long)]
+        force: bool,
+        #[arg(long = "skip-changed")]
+        skip_changed: bool,
+        #[arg(long = "dry-run")]
+        dry_run: bool,
+    },
+    Demo {
+        #[arg(long)]
+        open: bool,
+    },
+}
+
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    match cli.command {
+        Commands::Run {
+            open,
+            deep,
+            command,
+        } => run_command(command, open, deep),
+        Commands::Report {
+            run_id,
+            print_json,
+            open,
+            no_open,
+        } => {
+            let report = resolve_receipt(&run_id)?;
+            if print_json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+                Ok(())
+            } else {
+                serve_report(report, open || !no_open)
+            }
+        }
+        Commands::List {
+            query,
+            risk,
+            mode,
+            limit,
+        } => {
+            for report in filter_reports(
+                list_reports()?,
+                query.as_deref(),
+                risk.as_deref(),
+                mode.as_deref(),
+            )?
+            .into_iter()
+            .take(limit)
+            {
+                println!(
+                    "{}\t{}\t{}\t{}",
+                    report.run.id,
+                    report.run.started_at,
+                    report.run.exit_code.unwrap_or(-1),
+                    report.run.command_display
+                );
+            }
+            Ok(())
+        }
+        Commands::Export {
+            run_id,
+            html,
+            json,
+            markdown,
+            reverse_patch,
+            bundle,
+        } => export_report(&run_id, html, json, markdown, reverse_patch, bundle),
+        Commands::Doctor => doctor(),
+        Commands::Snapshot { dry_run } => snapshot_dry_run(dry_run),
+        Commands::Prune { keep, dry_run } => prune_receipts(keep, dry_run),
+        Commands::Delete { run_id } => delete_receipt(&run_id),
+        Commands::Revert {
+            run_id,
+            files,
+            force,
+            skip_changed,
+            dry_run,
+        } => revert_receipt(&run_id, &files, force, skip_changed, dry_run),
+        Commands::Demo { open } => run_demo(open),
+    }
+}
+
+fn run_command(command: Vec<String>, open: bool, deep: bool) -> Result<()> {
+    let mode = if deep {
+        ObservationMode::Deep
+    } else {
+        ObservationMode::Normal
+    };
+    let (report, paths) = run_observed_command_in_mode(command, mode)?;
+
+    println!("Created receipt {}", report.run.id);
+    println!("{}", paths.report_path.display());
+
+    if open {
+        serve_report(report, true)?;
+    }
+
+    Ok(())
+}
+
+fn run_demo(open: bool) -> Result<()> {
+    let run_id = make_run_id("demo-receipt");
+    let paths = prepare_run_paths(&run_id)?;
+    let mut report = fixture::sample_report_at(run_id, Utc::now());
+    if let Some(docker) = &report.docker {
+        report.summary.docker_containers_created = docker.containers_created.len();
+        report.summary.docker_images_pulled = docker.images_pulled.len();
+        report.summary.docker_volumes_created = docker.volumes_created.len();
+    }
+    report.stdout_path = Some(paths.stdout_path.display().to_string());
+    report.stderr_path = Some(paths.stderr_path.display().to_string());
+
+    write_report_bundle(
+        &paths,
+        &report,
+        report.stdout.as_deref().unwrap_or_default(),
+        report.stderr.as_deref().unwrap_or_default(),
+    )?;
+
+    println!("Created demo receipt {}", report.run.id);
+    println!("{}", paths.report_path.display());
+
+    if open {
+        serve_report(report, true)?;
+    }
+
+    Ok(())
+}
+
+fn export_report(
+    run_id: &str,
+    html: bool,
+    json: bool,
+    markdown: bool,
+    reverse_patch: bool,
+    bundle: bool,
+) -> Result<()> {
+    let report = resolve_receipt(run_id)?;
+    let base = report_run_dir(&report.run.id)?;
+
+    if html || (!json && !markdown && !reverse_patch && !bundle) {
+        let html_path = base.join("receipt.html");
+        write_standalone_html(&report, &html_path)?;
+        println!("{}", html_path.display());
+    }
+
+    if json {
+        let json_path = base.join("receipt.json");
+        let data = serde_json::to_vec_pretty(&report)?;
+        fs::write(&json_path, data)?;
+        println!("{}", json_path.display());
+    }
+
+    if markdown {
+        let markdown_path = base.join("receipt.md");
+        fs::write(&markdown_path, render_markdown_receipt(&report))?;
+        println!("{}", markdown_path.display());
+    }
+
+    if reverse_patch {
+        let patch_path = base.join("receipt-reverse.patch");
+        fs::write(&patch_path, render_reverse_patch(&report)?)?;
+        println!("{}", patch_path.display());
+    }
+
+    if bundle {
+        let bundle_path = write_share_bundle(&report, &base)?;
+        println!("{}", bundle_path.display());
+    }
+
+    Ok(())
+}
+
+fn filter_reports(
+    reports: Vec<RunReport>,
+    query: Option<&str>,
+    risk: Option<&str>,
+    mode: Option<&str>,
+) -> Result<Vec<RunReport>> {
+    let query = query.map(str::to_ascii_lowercase);
+    let risk = risk.map(str::to_ascii_lowercase);
+    let mode = mode.map(str::to_ascii_lowercase);
+    Ok(reports
+        .into_iter()
+        .filter(|report| {
+            query.as_ref().is_none_or(|query| {
+                report.run.id.to_ascii_lowercase().contains(query)
+                    || report
+                        .run
+                        .command_display
+                        .to_ascii_lowercase()
+                        .contains(query)
+                    || report
+                        .files
+                        .iter()
+                        .any(|file| file.path.to_ascii_lowercase().contains(query))
+                    || report.network.iter().any(|event| {
+                        event.ip.to_ascii_lowercase().contains(query)
+                            || event
+                                .host
+                                .as_deref()
+                                .unwrap_or_default()
+                                .to_ascii_lowercase()
+                                .contains(query)
+                    })
+            })
+        })
+        .filter(|report| {
+            risk.as_ref()
+                .is_none_or(|risk| risk_level_label(&report.summary.risk_level) == risk.as_str())
+        })
+        .filter(|report| {
+            mode.as_ref().is_none_or(|mode| {
+                matches!(
+                    (mode.as_str(), report.run.mode),
+                    ("normal", ObservationMode::Normal) | ("deep", ObservationMode::Deep)
+                )
+            })
+        })
+        .collect())
+}
+
+fn risk_level_label(risk: &RiskLevel) -> &'static str {
+    match risk {
+        RiskLevel::None => "none",
+        RiskLevel::Low => "low",
+        RiskLevel::Medium => "medium",
+        RiskLevel::High => "high",
+    }
+}
+
+fn doctor() -> Result<()> {
+    println!("RunGlass Doctor");
+    print_check("Platform", std::env::consts::OS, cfg!(target_os = "linux"));
+    print_check(
+        "Reports directory",
+        &reports_dir()?.display().to_string(),
+        true,
+    );
+    print_check(
+        "Snapshot cap",
+        &human_size(snapshot_file_byte_limit()),
+        snapshot_file_byte_limit() > 0,
+    );
+    print_check("ss", "socket sampling helper", command_on_path("ss"));
+    print_check(
+        "strace",
+        "deep mode tracing helper",
+        command_on_path("strace"),
+    );
+    print_check("docker", "Docker diff support", command_on_path("docker"));
+    println!();
+    println!(
+        "Tip: run `runglass snapshot --dry-run` inside a project to preview file capture scope."
+    );
+    Ok(())
+}
+
+fn print_check(name: &str, detail: &str, ok: bool) {
+    println!("{}\t{}\t{}", if ok { "ok" } else { "warn" }, name, detail);
+}
+
+fn snapshot_dry_run(_dry_run: bool) -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    let (entries, stats) = snapshot_directory_with_stats(&cwd)?;
+    println!("Snapshot dry run for {}", cwd.display());
+    println!("Captured files: {}", entries.len());
+    println!("Per-file cap: {}", human_size(snapshot_file_byte_limit()));
+    println!(
+        ".runglassignore: {}",
+        if cwd.join(".runglassignore").exists() {
+            "active"
+        } else {
+            "not present"
+        }
+    );
+    println!("Skipped large files: {}", stats.skipped_large_files.len());
+    for skipped in stats.skipped_large_files.iter().take(12) {
+        println!("- {} ({})", skipped.path, human_size(skipped.size));
+    }
+    Ok(())
+}
+
+fn prune_receipts(keep: usize, dry_run: bool) -> Result<()> {
+    let deleted = prune_reports(keep, dry_run)?;
+    println!(
+        "{} {} receipt{}",
+        if dry_run { "Would prune" } else { "Pruned" },
+        deleted.len(),
+        if deleted.len() == 1 { "" } else { "s" }
+    );
+    for id in deleted {
+        println!("- {id}");
+    }
+    Ok(())
+}
+
+fn delete_receipt(run_id: &str) -> Result<()> {
+    let report = resolve_receipt(run_id)?;
+    let deleted = delete_report(&report.run.id)?;
+    println!("Deleted receipt {} at {}", report.run.id, deleted.display());
+    Ok(())
+}
+
+fn write_share_bundle(report: &RunReport, base: &Path) -> Result<PathBuf> {
+    let html_path = base.join("receipt.html");
+    write_standalone_html(report, &html_path)?;
+    let markdown_path = base.join("receipt.md");
+    fs::write(&markdown_path, render_markdown_receipt(report))?;
+    let json_path = base.join("receipt.json");
+    fs::write(&json_path, serde_json::to_vec_pretty(report)?)?;
+    let patch_path = base.join("receipt-reverse.patch");
+    fs::write(&patch_path, render_reverse_patch(report)?)?;
+
+    let bundle_path = base.join(format!("runglass-share-{}.tar", report.run.id));
+    let mut bundle = fs::File::create(&bundle_path)?;
+    append_tar_file(&mut bundle, "receipt.html", &html_path)?;
+    append_tar_file(&mut bundle, "receipt.md", &markdown_path)?;
+    append_tar_file(&mut bundle, "receipt.json", &json_path)?;
+    append_tar_file(&mut bundle, "receipt-reverse.patch", &patch_path)?;
+    append_tar_file(&mut bundle, "stdout.log", &base.join("stdout.log"))?;
+    append_tar_file(&mut bundle, "stderr.log", &base.join("stderr.log"))?;
+    append_tar_tree(&mut bundle, "file-artifacts", &base.join("file-artifacts"))?;
+    bundle.write_all(&[0_u8; 1024])?;
+    Ok(bundle_path)
+}
+
+fn append_tar_tree(writer: &mut fs::File, prefix: &str, dir: &Path) -> Result<()> {
+    if !dir.exists() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            let child_prefix = format!("{prefix}/{}", entry.file_name().to_string_lossy());
+            append_tar_tree(writer, &child_prefix, &path)?;
+        } else if path.is_file() {
+            let name = format!("{prefix}/{}", entry.file_name().to_string_lossy());
+            append_tar_file(writer, &name, &path)?;
+        }
+    }
+    Ok(())
+}
+
+fn append_tar_file(writer: &mut fs::File, name: &str, path: &Path) -> Result<()> {
+    if !path.exists() {
+        return Ok(());
+    }
+    let bytes = fs::read(path)?;
+    let mut header = [0_u8; 512];
+    write_tar_field(&mut header[0..100], name.as_bytes());
+    write_octal(&mut header[100..108], 0o644);
+    write_octal(&mut header[108..116], 0);
+    write_octal(&mut header[116..124], 0);
+    write_octal(&mut header[124..136], bytes.len() as u64);
+    write_octal(&mut header[136..148], 0);
+    header[148..156].fill(b' ');
+    header[156] = b'0';
+    write_tar_field(&mut header[257..263], b"ustar\0");
+    write_tar_field(&mut header[263..265], b"00");
+    let checksum: u32 = header.iter().map(|byte| *byte as u32).sum();
+    write_checksum(&mut header[148..156], checksum);
+    writer.write_all(&header)?;
+    writer.write_all(&bytes)?;
+    let padding = (512 - (bytes.len() % 512)) % 512;
+    if padding > 0 {
+        writer.write_all(&vec![0_u8; padding])?;
+    }
+    Ok(())
+}
+
+fn write_tar_field(field: &mut [u8], value: &[u8]) {
+    let len = value.len().min(field.len());
+    field[..len].copy_from_slice(&value[..len]);
+}
+
+fn write_octal(field: &mut [u8], value: u64) {
+    let text = format!("{:0width$o}\0", value, width = field.len() - 1);
+    write_tar_field(field, text.as_bytes());
+}
+
+fn write_checksum(field: &mut [u8], value: u32) {
+    let text = format!("{:06o}\0 ", value);
+    write_tar_field(field, text.as_bytes());
+}
+
+fn command_on_path(command: &str) -> bool {
+    std::env::var_os("PATH")
+        .map(|paths| std::env::split_paths(&paths).any(|path| path.join(command).is_file()))
+        .unwrap_or(false)
+}
+
+fn human_size(bytes: u64) -> String {
+    const MIB: u64 = 1024 * 1024;
+    const KIB: u64 = 1024;
+    if bytes >= MIB {
+        format!("{:.1} MiB", bytes as f64 / MIB as f64)
+    } else if bytes >= KIB {
+        format!("{:.1} KiB", bytes as f64 / KIB as f64)
+    } else {
+        format!("{bytes} bytes")
+    }
+}
+
+fn revert_receipt(
+    run_id: &str,
+    files: &[String],
+    force: bool,
+    skip_changed: bool,
+    dry_run: bool,
+) -> Result<()> {
+    let report = resolve_receipt(run_id)?;
+    let selected = (!files.is_empty()).then_some(files);
+    let preview = preview_revert(&report, selected)?;
+    print_revert_preview(&preview);
+
+    if dry_run {
+        return Ok(());
+    }
+
+    let policy = if force {
+        RevertConflictPolicy::Force
+    } else if skip_changed {
+        RevertConflictPolicy::SkipChanged
+    } else {
+        RevertConflictPolicy::Abort
+    };
+
+    let result = apply_revert(&report, selected, RevertOptions { policy })?;
+    println!();
+    println!("Applied revert for receipt {}", report.run.id);
+    print_revert_preview(&result);
+    Ok(())
+}
+
+fn print_revert_preview(preview: &runglass_core::RevertPreview) {
+    println!("Receipt: {}", preview.receipt_id);
+    println!("Targets: {}", preview.target_count);
+    println!(
+        "Will restore {} modified, delete {} created, restore {} deleted",
+        preview.restore_modified, preview.delete_created, preview.restore_deleted
+    );
+    if !preview.safe.is_empty() {
+        println!("Safe: {}", preview.safe.len());
+    }
+    if !preview.already_reverted.is_empty() {
+        println!("Already reverted: {}", preview.already_reverted.len());
+    }
+    if !preview.conflicts.is_empty() {
+        println!("Changed since receipt: {}", preview.conflicts.len());
+        for item in &preview.conflicts {
+            println!("- {}: {}", item.path, item.detail);
+        }
+    }
+    if !preview.missing_artifacts.is_empty() {
+        println!(
+            "Missing stored snapshots: {}",
+            preview.missing_artifacts.len()
+        );
+        for item in &preview.missing_artifacts {
+            println!("- {}: {}", item.path, item.detail);
+        }
+    }
+}
+
+fn resolve_receipt(selector: &str) -> Result<RunReport> {
+    if selector == "latest" {
+        return latest_report();
+    }
+    if selector.trim().is_empty() {
+        return Err(anyhow!("receipt selector cannot be empty"));
+    }
+    load_report(selector)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Cli, Commands};
+    use clap::Parser;
+
+    #[test]
+    fn report_accepts_documented_open_flag() {
+        let cli = Cli::try_parse_from(["runglass", "report", "latest", "--open"])
+            .expect("parse report --open");
+
+        let Commands::Report { open, no_open, .. } = cli.command else {
+            panic!("expected report command");
+        };
+        assert!(open);
+        assert!(!no_open);
+    }
+
+    #[test]
+    fn report_accepts_no_open_for_headless_use() {
+        let cli = Cli::try_parse_from(["runglass", "report", "latest", "--no-open"])
+            .expect("parse report --no-open");
+
+        let Commands::Report { open, no_open, .. } = cli.command else {
+            panic!("expected report command");
+        };
+        assert!(!open);
+        assert!(no_open);
+    }
+}

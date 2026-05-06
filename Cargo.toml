@@ -1,0 +1,15 @@
+[workspace]
+members = [
+    "crates/runglass-core",
+    "crates/runglass-cli",
+    "crates/runglass-web",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/error311/runglass"
+homepage = "https://github.com/error311/runglass"
+readme = "README.md"
