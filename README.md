@@ -1,4 +1,4 @@
-![RunGlass](https://raw.githubusercontent.com/error311/runglass/main/assets/branding/runglass_wordmark.svg)
+![RunGlass](https://raw.githubusercontent.com/error311/runglass/main/assets/branding/runglass_readme_wordmark.svg)
 
 # RunGlass
 
