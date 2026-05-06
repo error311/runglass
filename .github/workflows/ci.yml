@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Rust
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust components
+        run: rustup component add rustfmt clippy
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace --locked
+
+      - name: Package runglass-core
+        run: cargo package -p runglass-core --locked
+
+      - name: Check runglass-web package file list
+        run: cargo package -p runglass-web --locked --list
+
+      - name: Check runglass package file list
+        run: cargo package -p runglass --locked --list

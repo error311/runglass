@@ -413,6 +413,7 @@ fn ss_poll_interval(elapsed: Duration) -> Duration {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn refresh_live_side_effects(
     root_pid: u32,
     before: &HashMap<String, SnapshotEntry>,
@@ -508,13 +509,13 @@ fn human_size(bytes: u64) -> String {
     const MIB: u64 = 1024 * 1024;
     const KIB: u64 = 1024;
     if bytes >= MIB {
-        if bytes % MIB == 0 {
+        if bytes.is_multiple_of(MIB) {
             format!("{} MiB", bytes / MIB)
         } else {
             format!("{:.1} MiB", bytes as f64 / MIB as f64)
         }
     } else if bytes >= KIB {
-        if bytes % KIB == 0 {
+        if bytes.is_multiple_of(KIB) {
             format!("{} KiB", bytes / KIB)
         } else {
             format!("{:.1} KiB", bytes as f64 / KIB as f64)
@@ -524,6 +525,7 @@ fn human_size(bytes: u64) -> String {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn settle_observations_after_exit(
     root_pid: u32,
     known_process_ids: &mut HashSet<u32>,
@@ -600,6 +602,7 @@ fn join_output_reader(handle: Option<thread::JoinHandle<Result<Vec<u8>>>>) -> Re
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn progress_snapshot(
     root_pid: u32,
     command: &[String],
@@ -643,7 +646,7 @@ fn progress_snapshot(
     }];
     events.extend(progress_process_events(&processes, root_pid));
     events.extend(network_events(&network));
-    events.sort_by(|left, right| left.at.cmp(&right.at));
+    events.sort_by_key(|event| event.at);
     RunProgress {
         command_display: command_display.to_string(),
         mode,

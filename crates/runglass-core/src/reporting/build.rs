@@ -13,6 +13,7 @@ use crate::{
 
 use super::risks::{build_summary, derive_risk_level, derive_risks};
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_command_report(
     run_id: String,
     command: &[String],
@@ -84,7 +85,7 @@ pub fn build_command_report(
     events.extend(network_events(&network));
     events.extend(docker_events(docker.as_ref(), ended_at));
     events.extend(file_events(&files, ended_at));
-    events.sort_by(|left, right| left.at.cmp(&right.at));
+    events.sort_by_key(|event| event.at);
 
     if processes.is_empty() {
         processes.push(ProcessInfo {

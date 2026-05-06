@@ -240,7 +240,6 @@ fn parse_published_port(value: &str) -> Option<DockerPortChange> {
 }
 
 #[cfg(target_os = "linux")]
-
 pub fn capture_docker_snapshot() -> Result<DockerSnapshot> {
     let mut containers = HashMap::new();
     for line in docker_lines("ps", &["-a", "--format", "{{json .}}"])? {

@@ -240,9 +240,7 @@ fn parse_ss_line(
         .cloned()
         .or_else(|| proc_map.get(&pid).map(|process| process.command.clone()))
         .or_else(|| parse_ss_process_name(users));
-    if process_name.is_none() {
-        return None;
-    }
+    process_name.as_ref()?;
 
     let (local_ip, local_port) = parse_ss_addr(local)?;
     let (peer_ip, peer_port) = parse_ss_addr(peer).unwrap_or_else(|| ("0.0.0.0".to_string(), 0));
@@ -477,9 +475,9 @@ fn decode_ipv6(hex: &str) -> Option<String> {
         return None;
     }
     let mut bytes = [0_u8; 16];
-    for index in 0..16 {
+    for (index, byte) in bytes.iter_mut().enumerate() {
         let offset = index * 2;
-        bytes[index] = u8::from_str_radix(&hex[offset..offset + 2], 16).ok()?;
+        *byte = u8::from_str_radix(&hex[offset..offset + 2], 16).ok()?;
     }
     let mut normalized = [0_u8; 16];
     for chunk in 0..4 {
