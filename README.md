@@ -2,6 +2,11 @@
 
 # RunGlass
 
+[![CI](https://github.com/error311/runglass/actions/workflows/ci.yml/badge.svg)](https://github.com/error311/runglass/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/runglass.svg)](https://crates.io/crates/runglass)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Linux first](https://img.shields.io/badge/platform-linux--first-2ea043.svg)](#install)
+
 **Run one command. Get a receipt for what it actually did.**
 
 RunGlass wraps a command, watches it run, and produces a local receipt you can inspect, export, share, and in many file-change cases revert. It is built for the commands where terminal history is not enough: AI agents, install scripts, package managers, Docker Compose, deploy scripts, and anything else you want an audit trail for.
