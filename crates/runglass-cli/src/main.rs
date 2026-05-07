@@ -13,7 +13,7 @@ use runglass_core::{
     snapshot_directory_with_stats, snapshot_file_byte_limit, write_report_bundle, ObservationMode,
     RevertConflictPolicy, RevertOptions, RiskLevel, RunReport, RunStatus,
 };
-use runglass_web::{serve_report, write_standalone_html};
+use runglass_web::{serve_report, serve_report_on_port, write_standalone_html};
 
 const UNSUPPORTED_PLATFORM_MESSAGE: &str = "RunGlass command observation is Linux-first in this release.\nThis platform is not supported yet.";
 
@@ -30,14 +30,30 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    #[command(
+        about = "Run one command and create a receipt",
+        after_help = "RunGlass wraps one command and creates a receipt.\n\nExamples:\n  runglass run -- docker compose up -d\n  runglass run docker compose up -d\n  runglass run --deep -- ./install.sh"
+    )]
     Run {
         #[arg(long)]
         open: bool,
         #[arg(long)]
         deep: bool,
-        #[arg(required = true, num_args = 1.., allow_hyphen_values = true)]
+        #[arg(required = true, num_args = 1.., allow_hyphen_values = true, trailing_var_arg = true)]
         command: Vec<String>,
     },
+    #[command(about = "Open a receipt in the local browser UI")]
+    Open {
+        #[arg(default_value = "latest")]
+        run_id: String,
+        #[arg(
+            long,
+            default_value_t = 0,
+            help = "Port to bind, or 0 for any free port"
+        )]
+        port: u16,
+    },
+    #[command(about = "Run one command in CI and write receipt artifacts")]
     Ci {
         #[arg(long)]
         deep: bool,
@@ -52,7 +68,7 @@ enum Commands {
             default_value = "html,json,markdown"
         )]
         formats: Vec<CiFormat>,
-        #[arg(required = true, num_args = 1.., allow_hyphen_values = true)]
+        #[arg(required = true, num_args = 1.., allow_hyphen_values = true, trailing_var_arg = true)]
         command: Vec<String>,
     },
     Report {
@@ -66,6 +82,12 @@ enum Commands {
             help = "Serve the receipt UI without opening a browser"
         )]
         no_open: bool,
+        #[arg(
+            long,
+            default_value_t = 0,
+            help = "Port to bind, or 0 for any free port"
+        )]
+        port: u16,
     },
     List {
         #[arg(long)]
@@ -150,6 +172,7 @@ fn main() -> Result<()> {
             deep,
             command,
         } => run_command(command, open, deep),
+        Commands::Open { run_id, port } => open_receipt(&run_id, port),
         Commands::Ci {
             deep,
             provider,
@@ -162,13 +185,14 @@ fn main() -> Result<()> {
             print_json,
             open,
             no_open,
+            port,
         } => {
             let report = resolve_receipt(&run_id)?;
             if print_json {
                 println!("{}", serde_json::to_string_pretty(&report)?);
                 Ok(())
             } else {
-                serve_report(report, open || !no_open)
+                serve_report_on_port(report, open || !no_open, port)
             }
         }
         Commands::List {
@@ -236,6 +260,11 @@ fn run_command(command: Vec<String>, open: bool, deep: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn open_receipt(run_id: &str, port: u16) -> Result<()> {
+    let report = resolve_receipt(run_id)?;
+    serve_report_on_port(report, true, port)
 }
 
 fn ci_command(
@@ -890,11 +919,18 @@ mod tests {
         let cli = Cli::try_parse_from(["runglass", "report", "latest", "--open"])
             .expect("parse report --open");
 
-        let Commands::Report { open, no_open, .. } = cli.command else {
+        let Commands::Report {
+            open,
+            no_open,
+            port,
+            ..
+        } = cli.command
+        else {
             panic!("expected report command");
         };
         assert!(open);
         assert!(!no_open);
+        assert_eq!(port, 0);
     }
 
     #[test]
@@ -907,6 +943,61 @@ mod tests {
         };
         assert!(!open);
         assert!(no_open);
+    }
+
+    #[test]
+    fn open_defaults_to_latest_receipt() {
+        let cli = Cli::try_parse_from(["runglass", "open"]).expect("parse open");
+
+        let Commands::Open { run_id, port } = cli.command else {
+            panic!("expected open command");
+        };
+        assert_eq!(run_id, "latest");
+        assert_eq!(port, 0);
+    }
+
+    #[test]
+    fn open_accepts_receipt_id_and_port() {
+        let cli = Cli::try_parse_from(["runglass", "open", "abc123", "--port", "9876"])
+            .expect("parse open id --port");
+
+        let Commands::Open { run_id, port } = cli.command else {
+            panic!("expected open command");
+        };
+        assert_eq!(run_id, "abc123");
+        assert_eq!(port, 9876);
+    }
+
+    #[test]
+    fn run_accepts_command_without_double_dash() {
+        let cli = Cli::try_parse_from(["runglass", "run", "docker", "compose", "up", "-d"])
+            .expect("parse no-dash run command");
+
+        let Commands::Run { command, .. } = cli.command else {
+            panic!("expected run command");
+        };
+        assert_eq!(command, vec!["docker", "compose", "up", "-d"]);
+    }
+
+    #[test]
+    fn run_keeps_double_dash_for_unambiguous_wrapping() {
+        let cli = Cli::try_parse_from([
+            "runglass",
+            "run",
+            "--deep",
+            "--",
+            "cargo",
+            "test",
+            "--",
+            "--nocapture",
+        ])
+        .expect("parse dashed run command");
+
+        let Commands::Run { deep, command, .. } = cli.command else {
+            panic!("expected run command");
+        };
+        assert!(deep);
+        assert_eq!(command, vec!["cargo", "test", "--", "--nocapture"]);
     }
 
     #[test]

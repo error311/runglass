@@ -11,7 +11,7 @@ mod server;
 mod style;
 mod ui;
 
-pub use server::serve_report;
+pub use server::{serve_report, serve_report_on_port};
 pub use ui::render_html;
 
 pub fn write_standalone_html(report: &RunReport, path: &Path) -> Result<()> {

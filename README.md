@@ -10,7 +10,7 @@
 RunGlass is a Linux-first CLI for commands where terminal history is not enough: AI agents, install scripts, package managers, Docker Compose, deploy scripts, and anything else you want an audit trail for.
 
 ```bash
-runglass run --deep -- codex exec "fix this failing test"
+runglass run --deep codex exec "fix this failing test"
 ```
 
 Terminal history shows what you ran. RunGlass shows what happened:
@@ -83,25 +83,25 @@ cargo install --path crates/runglass-cli
 Run a command:
 
 ```bash
-runglass run -- npm install
+runglass run npm install
 ```
 
 Open the receipt:
 
 ```bash
-runglass report latest --open
+runglass open
 ```
 
 Use deep mode when you want stronger process and network fidelity:
 
 ```bash
-runglass run --deep -- docker compose up -d
+runglass run --deep docker compose up -d
 ```
 
 Wrap an AI agent command:
 
 ```bash
-runglass run --deep -- codex exec "fix this failing test"
+runglass run --deep codex exec "fix this failing test"
 ```
 
 ## Why It Exists
@@ -117,7 +117,9 @@ That matters when a command can create files, edit config, pull images, open por
 RunGlass is strongest when one command has one clear boundary:
 
 - `runglass run -- codex exec "fix this failing test"`
+- `runglass run codex exec "fix this failing test"`
 - `runglass run -- docker compose up -d`
+- `runglass run docker compose up -d`
 - `runglass run -- npm install`
 - `runglass run -- ./install.sh`
 - `runglass run -- ./deploy-preview.sh`
@@ -139,7 +141,7 @@ runglass export latest --bundle
 Inspect and revert file changes:
 
 ```bash
-runglass report latest --open
+runglass open
 ```
 
 The web UI can preview file reverts, warn when files changed after the receipt ended, and apply supported reversions.
@@ -203,6 +205,8 @@ See [`.runglassignore.example`](https://github.com/error311/runglass/blob/main/.
 
 ```bash
 runglass list --query docker --risk medium --mode deep
+runglass open latest
+runglass open <receipt-id> --port 0
 runglass prune --keep 50 --dry-run
 runglass delete latest
 runglass doctor

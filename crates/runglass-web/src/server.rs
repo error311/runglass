@@ -27,13 +27,17 @@ const RUNGLASS_LOGO_PNG: &[u8] = include_bytes!("../assets/branding/runglass_wor
 const RUNGLASS_LOGO_SVG: &[u8] = include_bytes!("../assets/branding/runglass_wordmark.svg");
 
 pub fn serve_report(report: RunReport, open_browser: bool) -> Result<()> {
+    serve_report_on_port(report, open_browser, 0)
+}
+
+pub fn serve_report_on_port(report: RunReport, open_browser: bool, port: u16) -> Result<()> {
     let html = render_html(&report)?;
     let json = serde_json::to_string_pretty(&report)?;
     let stdout = report.stdout.clone().unwrap_or_default();
     let stderr = report.stderr.clone().unwrap_or_default();
     let jobs: JobStore = Arc::new(Mutex::new(HashMap::new()));
 
-    let listener = TcpListener::bind("127.0.0.1:0")?;
+    let listener = TcpListener::bind(("127.0.0.1", port))?;
     let address = listener.local_addr()?;
     let server = Server::from_listener(listener, None).map_err(|err| anyhow!(err.to_string()))?;
     let url = format!("http://{address}");

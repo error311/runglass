@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.2 - 05/07/2026
+
+- Added `runglass open` as a shortcut for opening the latest receipt in the local browser UI.
+- `runglass open <receipt-id>` and `runglass open --port 0` now mirror the receipt-serving path used by `runglass report`.
+- Documented the shorter `runglass run <command...>` form while keeping `runglass run -- <command...>` available for unambiguous command wrapping.
+- Improved CLI help and README examples around receipt opening and command wrapping.
+
 ## v0.1.1 - 05/06/2026
 
 - Added clearer Linux-first platform messaging for command observation.
