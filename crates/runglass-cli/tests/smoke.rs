@@ -85,7 +85,30 @@ fn smoke_run_export_bundle_list_snapshot_and_doctor() {
         String::from_utf8_lossy(&export.stderr)
     );
     let bundle_path = String::from_utf8_lossy(&export.stdout).trim().to_string();
-    assert!(PathBuf::from(bundle_path).exists());
+    let bundle_path = PathBuf::from(bundle_path);
+    assert!(bundle_path.exists());
+    assert!(bundle_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with("runglass-receipt-") && name.ends_with(".tar")));
+    let bundle_bytes = fs::read(&bundle_path).expect("bundle bytes");
+    for entry in [
+        "receipt.html",
+        "receipt.md",
+        "receipt.json",
+        "reverse.patch",
+        "artifacts/stdout.txt",
+        "artifacts/stderr.txt",
+        "artifacts/metadata.json",
+        "artifacts/file-snapshots",
+    ] {
+        assert!(
+            bundle_bytes
+                .windows(entry.len())
+                .any(|window| window == entry.as_bytes()),
+            "bundle should contain {entry}"
+        );
+    }
 
     let ci_out = work.join("ci-receipt");
     let ci_out_arg = ci_out.to_string_lossy().to_string();

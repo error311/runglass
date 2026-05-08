@@ -278,11 +278,11 @@ function renderRevertOverlay() {
     : `${preview.target_count} file changes`;
   return `
     <div class="help-overlay" data-revert-close="overlay">
-      <div class="help-dialog" role="dialog" aria-modal="true" aria-label="Revert receipt changes">
+      <div class="help-dialog" role="dialog" aria-modal="true" aria-label="Revert supported file changes">
         <div class="help-dialog-header">
           <div>
-            <h3 class="help-dialog-title">Revert ${escapeHtml(targetLabel)}</h3>
-            <div class="help-dialog-subtitle">RunGlass will apply the stored before-run snapshots from this receipt back into the working directory.</div>
+            <h3 class="help-dialog-title">Revert Supported File Changes</h3>
+            <div class="help-dialog-subtitle">RunGlass will apply stored file snapshots for ${escapeHtml(targetLabel)} back into the working directory.</div>
           </div>
           <button type="button" class="action-btn icon" data-revert-close="button" aria-label="Close revert dialog">×</button>
         </div>
@@ -310,7 +310,7 @@ function renderRevertOverlay() {
           ` : ''}
           <div class="help-card">
             <strong>Selected Apply Set</strong>
-            <div>${applyPaths.length} file${applyPaths.length === 1 ? '' : 's'} will be reverted from this dialog.</div>
+            <div>${applyPaths.length} supported file change${applyPaths.length === 1 ? '' : 's'} will be reverted from this dialog.</div>
             ${includedConflictCount ? `<div class="inline-stack-gap-8">${includedConflictCount} changed-again file${includedConflictCount === 1 ? '' : 's'} are still included and will be force-reverted.</div>` : ''}
           </div>
           <div class="help-card">
@@ -403,7 +403,7 @@ function diffControls() {
         <button type="button" class="tab ${state.diffMode === 'unified' ? 'active' : ''}" data-diff-mode="unified">Unified</button>
         <button type="button" class="tab ${state.diffMode === 'side-by-side' ? 'active' : ''}" data-diff-mode="side-by-side">Side by Side</button>
       </div>
-      ${revertSnapshotsAvailable() && selectedFile() ? `<button type="button" class="action-btn" data-revert-scope="single">Revert This File</button>` : ''}
+      ${revertSnapshotsAvailable() && selectedFile() ? `<button type="button" class="action-btn" data-revert-scope="single">Revert File Change</button>` : ''}
       <button type="button" class="action-btn" data-copy="path">Copy Path</button>
     </div>
   `;
@@ -415,8 +415,8 @@ function filePanelControls() {
   return `
     <div class="panel-subactions">
       ${fileTabs()}
-      <button type="button" class="action-btn" data-revert-scope="all" ${revertUnavailable ? 'disabled' : ''}>Revert All</button>
-      <button type="button" class="action-btn" data-revert-scope="selected" ${revertUnavailable || !selectedCount ? 'disabled' : ''}>Revert Selected${selectedCount ? ` (${selectedCount})` : ''}</button>
+      <button type="button" class="action-btn" data-revert-scope="all" ${revertUnavailable ? 'disabled' : ''}>Revert Supported Files</button>
+      <button type="button" class="action-btn" data-revert-scope="selected" ${revertUnavailable || !selectedCount ? 'disabled' : ''}>Revert Selected Files${selectedCount ? ` (${selectedCount})` : ''}</button>
       <a class="action-btn ${revertUnavailable ? 'disabled' : ''}" href="${revertUnavailable ? '#' : reportReversePatchUrl(report.run.id)}" ${revertUnavailable ? 'aria-disabled="true"' : `target="_blank" rel="noreferrer" download="runglass-receipt-${escapeHtml(report.run.id)}-reverse.patch"`}>Download Reverse Patch</a>
     </div>
   `;

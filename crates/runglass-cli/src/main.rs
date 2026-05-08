@@ -130,11 +130,18 @@ enum Commands {
         run_id: String,
         #[arg(long = "file")]
         files: Vec<String>,
+        #[arg(long, help = "Apply the supported file revert after previewing it")]
+        apply: bool,
+        #[arg(
+            long,
+            help = "Preview the supported file revert without changing files"
+        )]
+        preview: bool,
         #[arg(long)]
         force: bool,
         #[arg(long = "skip-changed")]
         skip_changed: bool,
-        #[arg(long = "dry-run")]
+        #[arg(long = "dry-run", help = "Alias for --preview")]
         dry_run: bool,
     },
     Demo {
@@ -235,10 +242,19 @@ fn main() -> Result<()> {
         Commands::Revert {
             run_id,
             files,
+            apply,
+            preview,
             force,
             skip_changed,
             dry_run,
-        } => revert_receipt(&run_id, &files, force, skip_changed, dry_run),
+        } => revert_receipt(
+            &run_id,
+            &files,
+            apply,
+            preview || dry_run,
+            force,
+            skip_changed,
+        ),
         Commands::Demo { open } => run_demo(open),
     }
 }
@@ -560,7 +576,7 @@ fn export_report(
     }
 
     if reverse_patch {
-        let patch_path = base.join("receipt-reverse.patch");
+        let patch_path = base.join("reverse.patch");
         fs::write(&patch_path, render_reverse_patch(&report)?)?;
         println!("{}", patch_path.display());
     }
@@ -744,18 +760,72 @@ fn write_share_bundle(report: &RunReport, base: &Path) -> Result<PathBuf> {
     fs::write(&markdown_path, render_markdown_receipt(report))?;
     let json_path = base.join("receipt.json");
     fs::write(&json_path, serde_json::to_vec_pretty(report)?)?;
-    let patch_path = base.join("receipt-reverse.patch");
+    let patch_path = base.join("reverse.patch");
     fs::write(&patch_path, render_reverse_patch(report)?)?;
+    let metadata_path = base.join("bundle-metadata.json");
+    fs::write(
+        &metadata_path,
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "bundle_schema": "runglass-receipt-bundle-v1",
+            "receipt_id": report.run.id,
+            "command": report.run.command_display,
+            "status": report.run.status,
+            "created_at": Utc::now(),
+            "contents": [
+                "receipt.html",
+                "receipt.md",
+                "receipt.json",
+                "reverse.patch",
+                "artifacts/stdout.txt",
+                "artifacts/stderr.txt",
+                "artifacts/file-snapshots/"
+            ]
+        }))?,
+    )?;
 
-    let bundle_path = base.join(format!("runglass-share-{}.tar", report.run.id));
+    let bundle_root = format!("runglass-receipt-{}", report.run.id);
+    let bundle_path = base.join(format!("{bundle_root}.tar"));
     let mut bundle = fs::File::create(&bundle_path)?;
-    append_tar_file(&mut bundle, "receipt.html", &html_path)?;
-    append_tar_file(&mut bundle, "receipt.md", &markdown_path)?;
-    append_tar_file(&mut bundle, "receipt.json", &json_path)?;
-    append_tar_file(&mut bundle, "receipt-reverse.patch", &patch_path)?;
-    append_tar_file(&mut bundle, "stdout.log", &base.join("stdout.log"))?;
-    append_tar_file(&mut bundle, "stderr.log", &base.join("stderr.log"))?;
-    append_tar_tree(&mut bundle, "file-artifacts", &base.join("file-artifacts"))?;
+    append_tar_file(
+        &mut bundle,
+        &format!("{bundle_root}/receipt.html"),
+        &html_path,
+    )?;
+    append_tar_file(
+        &mut bundle,
+        &format!("{bundle_root}/receipt.md"),
+        &markdown_path,
+    )?;
+    append_tar_file(
+        &mut bundle,
+        &format!("{bundle_root}/receipt.json"),
+        &json_path,
+    )?;
+    append_tar_file(
+        &mut bundle,
+        &format!("{bundle_root}/reverse.patch"),
+        &patch_path,
+    )?;
+    append_tar_file(
+        &mut bundle,
+        &format!("{bundle_root}/artifacts/stdout.txt"),
+        &base.join("stdout.log"),
+    )?;
+    append_tar_file(
+        &mut bundle,
+        &format!("{bundle_root}/artifacts/stderr.txt"),
+        &base.join("stderr.log"),
+    )?;
+    append_tar_file(
+        &mut bundle,
+        &format!("{bundle_root}/artifacts/metadata.json"),
+        &metadata_path,
+    )?;
+    append_tar_tree(
+        &mut bundle,
+        &format!("{bundle_root}/artifacts/file-snapshots"),
+        &base.join("file-artifacts"),
+    )?;
     bundle.write_all(&[0_u8; 1024])?;
     Ok(bundle_path)
 }
@@ -784,7 +854,7 @@ fn append_tar_file(writer: &mut fs::File, name: &str, path: &Path) -> Result<()>
     }
     let bytes = fs::read(path)?;
     let mut header = [0_u8; 512];
-    write_tar_field(&mut header[0..100], name.as_bytes());
+    write_tar_name(&mut header, name)?;
     write_octal(&mut header[100..108], 0o644);
     write_octal(&mut header[108..116], 0);
     write_octal(&mut header[116..124], 0);
@@ -802,6 +872,27 @@ fn append_tar_file(writer: &mut fs::File, name: &str, path: &Path) -> Result<()>
     if padding > 0 {
         writer.write_all(&vec![0_u8; padding])?;
     }
+    Ok(())
+}
+
+fn write_tar_name(header: &mut [u8; 512], name: &str) -> Result<()> {
+    if name.len() <= 100 {
+        write_tar_field(&mut header[0..100], name.as_bytes());
+        return Ok(());
+    }
+
+    let split = name
+        .match_indices('/')
+        .filter_map(|(index, _)| {
+            let prefix = &name[..index];
+            let file_name = &name[index + 1..];
+            (prefix.len() <= 155 && file_name.len() <= 100).then_some((prefix, file_name))
+        })
+        .next_back()
+        .ok_or_else(|| anyhow!("tar entry path is too long for portable ustar header: {name}"))?;
+
+    write_tar_field(&mut header[0..100], split.1.as_bytes());
+    write_tar_field(&mut header[345..500], split.0.as_bytes());
     Ok(())
 }
 
@@ -841,16 +932,26 @@ fn human_size(bytes: u64) -> String {
 fn revert_receipt(
     run_id: &str,
     files: &[String],
+    apply: bool,
+    preview_only: bool,
     force: bool,
     skip_changed: bool,
-    dry_run: bool,
 ) -> Result<()> {
+    if apply && preview_only {
+        return Err(anyhow!("use either --apply or --preview, not both"));
+    }
+    if force && skip_changed {
+        return Err(anyhow!("use either --force or --skip-changed, not both"));
+    }
+
     let report = resolve_receipt(run_id)?;
     let selected = (!files.is_empty()).then_some(files);
     let preview = preview_revert(&report, selected)?;
     print_revert_preview(&preview);
 
-    if dry_run {
+    if !apply || preview_only {
+        println!();
+        println!("Preview only. Re-run with --apply to revert supported file changes.");
         return Ok(());
     }
 
@@ -864,7 +965,10 @@ fn revert_receipt(
 
     let result = apply_revert(&report, selected, RevertOptions { policy })?;
     println!();
-    println!("Applied revert for receipt {}", report.run.id);
+    println!(
+        "Applied supported file revert for receipt {}",
+        report.run.id
+    );
     print_revert_preview(&result);
     Ok(())
 }
@@ -998,6 +1102,40 @@ mod tests {
         };
         assert!(deep);
         assert_eq!(command, vec!["cargo", "test", "--", "--nocapture"]);
+    }
+
+    #[test]
+    fn revert_accepts_preview_and_apply_flags() {
+        let preview = Cli::try_parse_from(["runglass", "revert", "latest", "--preview"])
+            .expect("parse revert preview");
+        let Commands::Revert {
+            preview,
+            apply,
+            dry_run,
+            ..
+        } = preview.command
+        else {
+            panic!("expected revert command");
+        };
+        assert!(preview);
+        assert!(!apply);
+        assert!(!dry_run);
+
+        let apply =
+            Cli::try_parse_from(["runglass", "revert", "latest", "--apply", "--skip-changed"])
+                .expect("parse revert apply");
+        let Commands::Revert {
+            preview,
+            apply,
+            skip_changed,
+            ..
+        } = apply.command
+        else {
+            panic!("expected revert command");
+        };
+        assert!(!preview);
+        assert!(apply);
+        assert!(skip_changed);
     }
 
     #[test]

@@ -54,9 +54,9 @@ async function applyRevertAction(_policy) {
     return;
   }
   state.revertPreview = result;
-  state.revertMessage = 'Revert applied in the working directory. This receipt remains the original historical record.';
+  state.revertMessage = 'Supported file revert applied in the working directory. This receipt remains the original historical record.';
   await refreshRevertWorkspaceStatus();
-  pushNotice('Revert applied in the working directory.', 'success');
+  pushNotice('Supported file revert applied in the working directory.', 'success');
   buildApp();
 }
 

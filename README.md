@@ -138,13 +138,33 @@ runglass export latest --reverse-patch
 runglass export latest --bundle
 ```
 
-Inspect and revert file changes:
+Preview and apply supported file reverts:
 
 ```bash
+runglass revert latest --preview
+runglass revert latest --apply
+runglass revert latest --apply --skip-changed
 runglass open
 ```
 
 The web UI can preview file reverts, warn when files changed after the receipt ended, and apply supported reversions.
+
+### What Revert Can And Cannot Undo
+
+RunGlass reverts supported file changes from a receipt. It compares the current workspace to the receipt's recorded after-state before writing anything.
+
+It can:
+
+- restore modified files when stored before-run snapshots are available
+- delete files that were created by the wrapped command and have not changed since
+- restore files that were deleted by the wrapped command when stored before-run snapshots are available
+- skip or force files that changed after the receipt finished
+
+It does not automatically roll back non-file side effects such as Docker changes, network calls, external database writes, package manager global changes, external service mutations, or commands run outside the watched working directory.
+
+RunGlass still helps with those side effects by showing the observed Docker before/after state, outbound hosts, listening ports, process activity, command output, and risk notes. For example, a receipt can show which containers, images, volumes, networks, or ports appeared during a command so you can decide on the right cleanup action deliberately.
+
+Bundle exports are portable tar archives named `runglass-receipt-<id>.tar` with a `runglass-receipt-<id>/` directory containing `receipt.html`, `receipt.md`, `receipt.json`, `reverse.patch`, and an `artifacts/` folder.
 
 ## CI Receipts
 

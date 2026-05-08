@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.3 - Unreleased
+
+- Made `runglass revert latest` preview-only by default and added explicit `--preview` and `--apply` flags for safer file reverts.
+- Kept `--dry-run` as a compatibility alias for revert preview and added clearer errors for conflicting revert options.
+- Renamed reverse patch exports to `reverse.patch` and hardened bundle exports around a portable `runglass-receipt-<id>/` layout.
+- Updated revert UI and docs to say supported file changes instead of implying a whole-command undo.
+- Documented what RunGlass file revert can and cannot undo.
+
 ## v0.1.2 - 05/07/2026
 
 - Added `runglass open` as a shortcut for opening the latest receipt in the local browser UI.

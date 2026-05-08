@@ -60,7 +60,7 @@ function revertStatusNote() {
   if (state.revertSelectedPaths.length) {
     return `${state.revertSelectedPaths.length} file${state.revertSelectedPaths.length === 1 ? '' : 's'} selected for revert preview.`;
   }
-  return 'Select file changes to preview a targeted revert, or use Revert All.';
+  return 'Select file changes to preview a targeted revert, or revert all supported file changes.';
 }
 
 function revertPathIsSelected(path) {
