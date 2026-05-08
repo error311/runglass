@@ -6,12 +6,14 @@ use std::process;
 use anyhow::{anyhow, Result};
 use chrono::Utc;
 use clap::{Parser, Subcommand, ValueEnum};
+use runglass_core::render_ai_receipt_summary;
 use runglass_core::{
     apply_revert, delete_report, fixture, latest_report, list_reports, load_report, make_run_id,
     prepare_run_paths, preview_revert, prune_reports, render_markdown_receipt,
-    render_reverse_patch, report_run_dir, reports_dir, run_observed_command_in_mode,
-    snapshot_directory_with_stats, snapshot_file_byte_limit, write_report_bundle, ObservationMode,
-    RevertConflictPolicy, RevertOptions, RiskLevel, RunReport, RunStatus,
+    render_reverse_patch, render_summary_markdown_receipt, report_run_dir, reports_dir,
+    run_observed_command_in_mode, snapshot_directory_with_stats, snapshot_file_byte_limit,
+    write_report_bundle, ObservationMode, RevertConflictPolicy, RevertOptions, RiskLevel,
+    RunReport, RunStatus,
 };
 use runglass_web::{serve_report, serve_report_on_port, write_standalone_html};
 
@@ -59,7 +61,7 @@ enum Commands {
         deep: bool,
         #[arg(long, value_enum, default_value_t = CiProvider::Auto)]
         provider: CiProvider,
-        #[arg(long, default_value = "runglass-receipt")]
+        #[arg(long, visible_alias = "output", default_value = "runglass-receipt")]
         out: PathBuf,
         #[arg(
             long = "format",
@@ -75,6 +77,8 @@ enum Commands {
         run_id: String,
         #[arg(long)]
         print_json: bool,
+        #[arg(long, help = "Print a compact AI-friendly receipt summary")]
+        ai: bool,
         #[arg(long, help = "Open the local receipt UI in your browser")]
         open: bool,
         #[arg(
@@ -111,6 +115,8 @@ enum Commands {
         reverse_patch: bool,
         #[arg(long)]
         bundle: bool,
+        #[arg(long = "format", value_enum, value_delimiter = ',')]
+        formats: Vec<ExportFormat>,
     },
     Doctor,
     Snapshot {
@@ -165,9 +171,31 @@ enum CiFormat {
     Markdown,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum ExportFormat {
+    Html,
+    Json,
+    Markdown,
+    #[value(name = "reverse-patch")]
+    ReversePatch,
+    Bundle,
+    #[value(name = "summary-md")]
+    SummaryMd,
+    Ai,
+}
+
 struct CiArtifact {
     label: &'static str,
     path: PathBuf,
+}
+
+struct ExportSelection {
+    html: bool,
+    json: bool,
+    markdown: bool,
+    reverse_patch: bool,
+    bundle: bool,
+    formats: Vec<ExportFormat>,
 }
 
 fn main() -> Result<()> {
@@ -190,13 +218,19 @@ fn main() -> Result<()> {
         Commands::Report {
             run_id,
             print_json,
+            ai,
             open,
             no_open,
             port,
         } => {
             let report = resolve_receipt(&run_id)?;
-            if print_json {
+            if print_json && ai {
+                Err(anyhow!("use either --print-json or --ai, not both"))
+            } else if print_json {
                 println!("{}", serde_json::to_string_pretty(&report)?);
+                Ok(())
+            } else if ai {
+                print!("{}", render_ai_receipt_summary(&report));
                 Ok(())
             } else {
                 serve_report_on_port(report, open || !no_open, port)
@@ -234,7 +268,18 @@ fn main() -> Result<()> {
             markdown,
             reverse_patch,
             bundle,
-        } => export_report(&run_id, html, json, markdown, reverse_patch, bundle),
+            formats,
+        } => export_report(
+            &run_id,
+            ExportSelection {
+                html,
+                json,
+                markdown,
+                reverse_patch,
+                bundle,
+                formats,
+            },
+        ),
         Commands::Doctor => doctor(),
         Commands::Snapshot { dry_run } => snapshot_dry_run(dry_run),
         Commands::Prune { keep, dry_run } => prune_receipts(keep, dry_run),
@@ -306,6 +351,8 @@ fn ci_command(
     let summary = render_ci_summary(&report, provider, &artifacts);
     let summary_path = out.join("summary.md");
     fs::write(&summary_path, &summary)?;
+    let ai_summary_path = out.join("ai-summary.txt");
+    fs::write(&ai_summary_path, render_ai_receipt_summary(&report))?;
 
     println!("Created CI receipt {}", report.run.id);
     println!("{}", out.display());
@@ -431,6 +478,7 @@ fn render_ci_summary(report: &RunReport, provider: CiProvider, artifacts: &[CiAr
             ));
         }
         lines.push("- CI summary: `summary.md`".to_string());
+        lines.push("- AI summary: `ai-summary.txt`".to_string());
     }
 
     match provider {
@@ -545,18 +593,19 @@ fn run_demo(open: bool) -> Result<()> {
     Ok(())
 }
 
-fn export_report(
-    run_id: &str,
-    html: bool,
-    json: bool,
-    markdown: bool,
-    reverse_patch: bool,
-    bundle: bool,
-) -> Result<()> {
+fn export_report(run_id: &str, selection: ExportSelection) -> Result<()> {
     let report = resolve_receipt(run_id)?;
     let base = report_run_dir(&report.run.id)?;
+    let html = selection.html || selection.formats.contains(&ExportFormat::Html);
+    let json = selection.json || selection.formats.contains(&ExportFormat::Json);
+    let markdown = selection.markdown || selection.formats.contains(&ExportFormat::Markdown);
+    let reverse_patch =
+        selection.reverse_patch || selection.formats.contains(&ExportFormat::ReversePatch);
+    let bundle = selection.bundle || selection.formats.contains(&ExportFormat::Bundle);
+    let summary_md = selection.formats.contains(&ExportFormat::SummaryMd);
+    let ai = selection.formats.contains(&ExportFormat::Ai);
 
-    if html || (!json && !markdown && !reverse_patch && !bundle) {
+    if html || (!json && !markdown && !reverse_patch && !bundle && !summary_md && !ai) {
         let html_path = base.join("receipt.html");
         write_standalone_html(&report, &html_path)?;
         println!("{}", html_path.display());
@@ -584,6 +633,18 @@ fn export_report(
     if bundle {
         let bundle_path = write_share_bundle(&report, &base)?;
         println!("{}", bundle_path.display());
+    }
+
+    if summary_md {
+        let summary_path = base.join("summary.md");
+        fs::write(&summary_path, render_summary_markdown_receipt(&report))?;
+        println!("{}", summary_path.display());
+    }
+
+    if ai {
+        let ai_path = base.join("ai-summary.txt");
+        fs::write(&ai_path, render_ai_receipt_summary(&report))?;
+        println!("{}", ai_path.display());
     }
 
     Ok(())
@@ -758,6 +819,10 @@ fn write_share_bundle(report: &RunReport, base: &Path) -> Result<PathBuf> {
     write_standalone_html(report, &html_path)?;
     let markdown_path = base.join("receipt.md");
     fs::write(&markdown_path, render_markdown_receipt(report))?;
+    let summary_path = base.join("summary.md");
+    fs::write(&summary_path, render_summary_markdown_receipt(report))?;
+    let ai_summary_path = base.join("ai-summary.txt");
+    fs::write(&ai_summary_path, render_ai_receipt_summary(report))?;
     let json_path = base.join("receipt.json");
     fs::write(&json_path, serde_json::to_vec_pretty(report)?)?;
     let patch_path = base.join("reverse.patch");
@@ -774,6 +839,8 @@ fn write_share_bundle(report: &RunReport, base: &Path) -> Result<PathBuf> {
             "contents": [
                 "receipt.html",
                 "receipt.md",
+                "summary.md",
+                "ai-summary.txt",
                 "receipt.json",
                 "reverse.patch",
                 "artifacts/stdout.txt",
@@ -795,6 +862,16 @@ fn write_share_bundle(report: &RunReport, base: &Path) -> Result<PathBuf> {
         &mut bundle,
         &format!("{bundle_root}/receipt.md"),
         &markdown_path,
+    )?;
+    append_tar_file(
+        &mut bundle,
+        &format!("{bundle_root}/summary.md"),
+        &summary_path,
+    )?;
+    append_tar_file(
+        &mut bundle,
+        &format!("{bundle_root}/ai-summary.txt"),
+        &ai_summary_path,
     )?;
     append_tar_file(
         &mut bundle,
@@ -1015,7 +1092,7 @@ fn resolve_receipt(selector: &str) -> Result<RunReport> {
 
 #[cfg(test)]
 mod tests {
-    use super::{unsupported_platform_message, CiFormat, CiProvider, Cli, Commands};
+    use super::{unsupported_platform_message, CiFormat, CiProvider, Cli, Commands, ExportFormat};
     use clap::Parser;
 
     #[test]
@@ -1035,6 +1112,18 @@ mod tests {
         assert!(open);
         assert!(!no_open);
         assert_eq!(port, 0);
+    }
+
+    #[test]
+    fn report_accepts_ai_summary_flag() {
+        let cli = Cli::try_parse_from(["runglass", "report", "latest", "--ai"])
+            .expect("parse report --ai");
+
+        let Commands::Report { ai, print_json, .. } = cli.command else {
+            panic!("expected report command");
+        };
+        assert!(ai);
+        assert!(!print_json);
     }
 
     #[test]
@@ -1139,6 +1228,30 @@ mod tests {
     }
 
     #[test]
+    fn export_accepts_format_aliases_for_summaries() {
+        let cli = Cli::try_parse_from([
+            "runglass",
+            "export",
+            "latest",
+            "--format",
+            "summary-md,ai,reverse-patch",
+        ])
+        .expect("parse export formats");
+
+        let Commands::Export { formats, .. } = cli.command else {
+            panic!("expected export command");
+        };
+        assert_eq!(
+            formats,
+            vec![
+                ExportFormat::SummaryMd,
+                ExportFormat::Ai,
+                ExportFormat::ReversePatch
+            ]
+        );
+    }
+
+    #[test]
     fn unsupported_platform_message_is_clear() {
         let message = unsupported_platform_message();
         assert!(message.contains("Linux-first"));
@@ -1176,5 +1289,25 @@ mod tests {
         assert_eq!(out, std::path::PathBuf::from("receipt-out"));
         assert_eq!(formats, vec![CiFormat::Html, CiFormat::Json]);
         assert_eq!(command, vec!["cargo", "test"]);
+    }
+
+    #[test]
+    fn ci_accepts_output_alias_for_out() {
+        let cli = Cli::try_parse_from([
+            "runglass",
+            "ci",
+            "--output",
+            "receipt-out",
+            "--",
+            "npm",
+            "test",
+        ])
+        .expect("parse ci --output alias");
+
+        let Commands::Ci { out, command, .. } = cli.command else {
+            panic!("expected ci command");
+        };
+        assert_eq!(out, std::path::PathBuf::from("receipt-out"));
+        assert_eq!(command, vec!["npm", "test"]);
     }
 }

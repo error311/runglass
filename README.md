@@ -21,7 +21,7 @@ Terminal history shows what you ran. RunGlass shows what happened:
 - outbound network hosts and listening ports
 - Docker containers, images, volumes, networks, and published ports
 - risk notes for changes worth reviewing
-- HTML, Markdown, JSON, bundle, and reverse-patch exports
+- HTML, Markdown, JSON, compact summary, AI summary, bundle, and reverse-patch exports
 
 Example CI/PR use case:
 
@@ -136,6 +136,8 @@ runglass export latest --markdown
 runglass export latest --json
 runglass export latest --reverse-patch
 runglass export latest --bundle
+runglass export latest --format summary-md
+runglass export latest --format ai
 ```
 
 Preview and apply supported file reverts:
@@ -164,7 +166,26 @@ It does not automatically roll back non-file side effects such as Docker changes
 
 RunGlass still helps with those side effects by showing the observed Docker before/after state, outbound hosts, listening ports, process activity, command output, and risk notes. For example, a receipt can show which containers, images, volumes, networks, or ports appeared during a command so you can decide on the right cleanup action deliberately.
 
-Bundle exports are portable tar archives named `runglass-receipt-<id>.tar` with a `runglass-receipt-<id>/` directory containing `receipt.html`, `receipt.md`, `receipt.json`, `reverse.patch`, and an `artifacts/` folder.
+Bundle exports are portable tar archives named `runglass-receipt-<id>.tar` with a `runglass-receipt-<id>/` directory containing `receipt.html`, `receipt.md`, `summary.md`, `ai-summary.txt`, `receipt.json`, `reverse.patch`, and an `artifacts/` folder.
+
+## Compact Summaries
+
+Use compact summaries when the full HTML receipt is too much for a PR comment, CI log, issue report, or AI-agent feedback loop:
+
+```bash
+runglass export latest --format summary-md
+runglass report latest --ai
+runglass export latest --format ai
+```
+
+`summary-md` is a short Markdown report with impact counts and review-next items. `ai` is a deterministic text block designed to paste back into a coding agent without dumping full logs by default.
+
+Example agent workflow:
+
+```bash
+runglass run -- codex exec "fix this failing test"
+runglass export latest --format ai
+```
 
 ## CI Receipts
 
@@ -174,7 +195,14 @@ Use `runglass ci` when an agent, install script, or remote runner should leave r
 runglass ci --provider github --deep --out runglass-receipt -- codex exec "fix this failing test"
 ```
 
-The command writes `receipt.html`, `receipt.md`, `receipt.json`, and `summary.md` to the output directory. In CI mode, RunGlass returns the wrapped command's exit code after artifacts are written, so failing commands still fail the job while keeping the receipt available.
+The command writes `receipt.html`, `receipt.md`, `receipt.json`, `summary.md`, and `ai-summary.txt` to the output directory. In CI mode, RunGlass returns the wrapped command's exit code after artifacts are written, so failing commands still fail the job while keeping the receipt available.
+
+In GitHub Actions, `runglass ci --provider github` appends the compact Markdown summary to `$GITHUB_STEP_SUMMARY` when that file is available. In generic CI, publish the output directory as an artifact or append `summary.md` to your platform's job summary:
+
+```bash
+runglass ci --out runglass-receipt -- npm test
+cat runglass-receipt/summary.md >> "$GITHUB_STEP_SUMMARY"
+```
 
 Starter workflows are included for [GitHub Actions](examples/ci/github-actions.yml) and [GitLab CI](examples/ci/gitlab-ci.yml).
 
@@ -227,6 +255,7 @@ See [`.runglassignore.example`](https://github.com/error311/runglass/blob/main/.
 runglass list --query docker --risk medium --mode deep
 runglass open latest
 runglass open <receipt-id> --port 0
+runglass report latest --ai
 runglass prune --keep 50 --dry-run
 runglass delete latest
 runglass doctor

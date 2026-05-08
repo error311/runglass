@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.4 - Unreleased
+
+- Added compact Markdown receipt summaries for PR comments, CI summaries, issue reports, and logs.
+- Added deterministic AI-friendly receipt summaries via `runglass report latest --ai` and `runglass export latest --format ai`.
+- Added `runglass export latest --format summary-md` and comma-delimited `--format` aliases while keeping existing export flags.
+- CI receipt mode now writes `ai-summary.txt` alongside `summary.md` and includes both compact summaries in bundle exports.
+- Documented using RunGlass summaries around coding-agent commands and CI artifacts.
+
 ## v0.1.3 - Unreleased
 
 - Made `runglass revert latest` preview-only by default and added explicit `--preview` and `--apply` flags for safer file reverts.

@@ -95,6 +95,8 @@ fn smoke_run_export_bundle_list_snapshot_and_doctor() {
     for entry in [
         "receipt.html",
         "receipt.md",
+        "summary.md",
+        "ai-summary.txt",
         "receipt.json",
         "reverse.patch",
         "artifacts/stdout.txt",
@@ -139,6 +141,7 @@ fn smoke_run_export_bundle_list_snapshot_and_doctor() {
     assert!(ci_out.join("receipt.json").exists());
     assert!(ci_out.join("receipt.md").exists());
     assert!(ci_out.join("summary.md").exists());
+    assert!(ci_out.join("ai-summary.txt").exists());
     assert!(String::from_utf8_lossy(&ci.stdout).contains("Created CI receipt"));
 
     let doctor = Command::new(runglass_bin())

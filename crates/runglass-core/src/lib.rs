@@ -11,7 +11,10 @@ pub use collectors::{
     read_network_samples_ss, read_process_tree_sample, snapshot_directory,
     snapshot_directory_with_stats, snapshot_file_byte_limit, summarize_network_samples,
 };
-pub use reporting::{build_command_report, render_markdown_receipt, unique_hosts};
+pub use reporting::{
+    build_command_report, render_ai_receipt_summary, render_markdown_receipt,
+    render_summary_markdown_receipt, unique_hosts,
+};
 pub use revert::{apply_revert, preview_revert, render_reverse_patch};
 pub use runtime::{
     run_observed_command, run_observed_command_in_mode, run_observed_command_with_control,
