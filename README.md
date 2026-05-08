@@ -187,6 +187,26 @@ runglass run -- codex exec "fix this failing test"
 runglass export latest --format ai
 ```
 
+## GitHub PR Comments
+
+RunGlass can post or update a compact receipt summary on a pull request:
+
+```bash
+runglass github detect
+runglass github comment --receipt latest --repo error311/runglass --pr 123 --dry-run
+runglass github comment --receipt latest --repo error311/runglass --pr 123
+```
+
+In GitHub Actions pull-request workflows, use `--auto` to infer the repository, PR number, commit SHA, and run URL:
+
+```bash
+runglass github comment --receipt latest --auto
+```
+
+Authentication is read from `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token`. RunGlass does not accept GitHub tokens as CLI arguments, so tokens do not need to appear in shell history or process listings. Tokens are not written into receipt artifacts. The GitHub token needs permission to write issue or pull request comments.
+
+See [GitHub integration docs](docs/github-integration.md) for workflow examples and token permissions.
+
 ## CI Receipts
 
 Use `runglass ci` when an agent, install script, or remote runner should leave reviewable artifacts behind:

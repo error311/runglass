@@ -1,6 +1,14 @@
 # Changelog
 
-## v0.1.4 - Unreleased
+## v0.1.5 - 05/08/2026
+
+- Added `runglass github detect` for local and GitHub Actions repository/PR context detection.
+- Added `runglass github comment --receipt latest --repo owner/name --pr N --dry-run` for previewing compact PR receipt comments.
+- Added GitHub API comment create/update support using a stable RunGlass marker to avoid duplicate PR comments.
+- Added token discovery from `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token` without storing tokens in receipt artifacts or accepting tokens as CLI arguments.
+- Documented GitHub Actions permissions and token handling.
+
+## v0.1.4 - 05/08/2026
 
 - Added compact Markdown receipt summaries for PR comments, CI summaries, issue reports, and logs.
 - Added deterministic AI-friendly receipt summaries via `runglass report latest --ai` and `runglass export latest --format ai`.
@@ -8,7 +16,7 @@
 - CI receipt mode now writes `ai-summary.txt` alongside `summary.md` and includes both compact summaries in bundle exports.
 - Documented using RunGlass summaries around coding-agent commands and CI artifacts.
 
-## v0.1.3 - Unreleased
+## v0.1.3 - 05/08/2026
 
 - Made `runglass revert latest` preview-only by default and added explicit `--preview` and `--apply` flags for safer file reverts.
 - Kept `--dry-run` as a compatibility alias for revert preview and added clearer errors for conflicting revert options.

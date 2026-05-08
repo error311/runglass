@@ -17,6 +17,8 @@ use runglass_core::{
 };
 use runglass_web::{serve_report, serve_report_on_port, write_standalone_html};
 
+mod github;
+
 const UNSUPPORTED_PLATFORM_MESSAGE: &str = "RunGlass command observation is Linux-first in this release.\nThis platform is not supported yet.";
 
 #[derive(Debug, Parser)]
@@ -132,6 +134,13 @@ enum Commands {
     Delete {
         run_id: String,
     },
+    #[command(
+        subcommand,
+        about = "Detect GitHub context and post PR receipt comments"
+    )]
+    Github(GithubCommands),
+    #[command(about = "Post or preview a compact RunGlass receipt comment on a pull request")]
+    PrComment(GithubCommentArgs),
     Revert {
         run_id: String,
         #[arg(long = "file")]
@@ -154,6 +163,33 @@ enum Commands {
         #[arg(long)]
         open: bool,
     },
+}
+
+#[derive(Debug, Subcommand)]
+enum GithubCommands {
+    Detect {
+        #[arg(long)]
+        repo: Option<String>,
+        #[arg(long)]
+        pr: Option<u64>,
+    },
+    Comment(GithubCommentArgs),
+}
+
+#[derive(Debug, Clone, clap::Args)]
+struct GithubCommentArgs {
+    #[arg(long, default_value = "latest")]
+    receipt: String,
+    #[arg(long)]
+    repo: Option<String>,
+    #[arg(long)]
+    pr: Option<u64>,
+    #[arg(long)]
+    auto: bool,
+    #[arg(long = "dry-run")]
+    dry_run: bool,
+    #[arg(long)]
+    api_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -284,6 +320,11 @@ fn main() -> Result<()> {
         Commands::Snapshot { dry_run } => snapshot_dry_run(dry_run),
         Commands::Prune { keep, dry_run } => prune_receipts(keep, dry_run),
         Commands::Delete { run_id } => delete_receipt(&run_id),
+        Commands::Github(command) => match command {
+            GithubCommands::Detect { repo, pr } => github::detect_command(repo, pr),
+            GithubCommands::Comment(args) => github_comment_command(args),
+        },
+        Commands::PrComment(args) => github_comment_command(args),
         Commands::Revert {
             run_id,
             files,
@@ -302,6 +343,18 @@ fn main() -> Result<()> {
         ),
         Commands::Demo { open } => run_demo(open),
     }
+}
+
+fn github_comment_command(args: GithubCommentArgs) -> Result<()> {
+    let report = resolve_receipt(&args.receipt)?;
+    let options = github::GithubCommentOptions {
+        repo: args.repo,
+        pr: args.pr,
+        auto: args.auto,
+        dry_run: args.dry_run,
+        api_url: args.api_url,
+    };
+    github::comment_command(&report, options)
 }
 
 fn run_command(command: Vec<String>, open: bool, deep: bool) -> Result<()> {
@@ -1092,7 +1145,10 @@ fn resolve_receipt(selector: &str) -> Result<RunReport> {
 
 #[cfg(test)]
 mod tests {
-    use super::{unsupported_platform_message, CiFormat, CiProvider, Cli, Commands, ExportFormat};
+    use super::{
+        unsupported_platform_message, CiFormat, CiProvider, Cli, Commands, ExportFormat,
+        GithubCommands,
+    };
     use clap::Parser;
 
     #[test]
@@ -1249,6 +1305,55 @@ mod tests {
                 ExportFormat::ReversePatch
             ]
         );
+    }
+
+    #[test]
+    fn github_comment_accepts_dry_run_arguments() {
+        let cli = Cli::try_parse_from([
+            "runglass",
+            "github",
+            "comment",
+            "--receipt",
+            "latest",
+            "--repo",
+            "error311/runglass",
+            "--pr",
+            "123",
+            "--dry-run",
+        ])
+        .expect("parse github comment");
+
+        let Commands::Github(GithubCommands::Comment(args)) = cli.command else {
+            panic!("expected github comment command");
+        };
+        assert_eq!(args.receipt, "latest");
+        assert_eq!(args.repo.as_deref(), Some("error311/runglass"));
+        assert_eq!(args.pr, Some(123));
+        assert!(args.dry_run);
+    }
+
+    #[test]
+    fn pr_comment_alias_accepts_receipt_arguments() {
+        let cli = Cli::try_parse_from([
+            "runglass",
+            "pr-comment",
+            "--receipt",
+            "abc123",
+            "--repo",
+            "error311/runglass",
+            "--pr",
+            "456",
+            "--dry-run",
+        ])
+        .expect("parse pr-comment alias");
+
+        let Commands::PrComment(args) = cli.command else {
+            panic!("expected pr-comment command");
+        };
+        assert_eq!(args.receipt, "abc123");
+        assert_eq!(args.repo.as_deref(), Some("error311/runglass"));
+        assert_eq!(args.pr, Some(456));
+        assert!(args.dry_run);
     }
 
     #[test]
