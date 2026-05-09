@@ -54,7 +54,8 @@ pub(crate) fn comment_command(report: &RunReport, options: GithubCommentOptions)
         .pr
         .ok_or_else(|| anyhow!("missing pull request number; pass --pr <number> or use --auto in a pull_request GitHub Actions run"))?;
     let repo = parse_repo(repo)?;
-    let body = render_comment_body(report, context.run_url.as_deref());
+    let run_url = options.auto.then_some(context.run_url.as_deref()).flatten();
+    let body = render_comment_body(report, run_url);
 
     if options.dry_run {
         print!("{body}");
