@@ -270,6 +270,7 @@ pub fn sample_report_at(run_id: String, started_at: DateTime<Utc>) -> RunReport 
 
     RunReport {
         schema_version: "0.1.0".to_string(),
+        ci: None,
         run: RunMeta {
             id: run_id,
             command_display: "docker compose up -d".to_string(),

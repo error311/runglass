@@ -88,9 +88,12 @@ function renderTopbar() {
     ? formatElapsedMs(state.runJob?.elapsed_ms || 0)
     : formatDuration(report.run.duration_ms || 0);
   const commandDisplay = displayedCommand();
+  const ci = report.ci || null;
   const subheadline = liveRunActive()
     ? 'Live receipt building for this command.'
-    : `${receiptSubheadline()}${report.run.cwd ? ` in ${escapeHtml(report.run.cwd)}` : ''}`;
+    : ci
+      ? `${ci.provider ? `${escapeHtml(ci.provider)} CI` : 'CI'} receipt${report.run.cwd ? ` from ${escapeHtml(report.run.cwd)}` : ''}.`
+      : `${receiptSubheadline()}${report.run.cwd ? ` in ${escapeHtml(report.run.cwd)}` : ''}`;
   const heroSentence = receiptHeroSentence();
   const metaRow = liveRunActive()
     ? `
@@ -150,6 +153,7 @@ function renderTopbar() {
             </div>
             <div class="subheadline">${subheadline}</div>
             <div class="meta-row">${metaRow}</div>
+            ${ci && !liveRunActive() ? renderCiMetaRow(ci) : ''}
           </div>
         </div>
         <div class="topbar-side">
@@ -158,6 +162,19 @@ function renderTopbar() {
       </div>
     </section>
   `;
+}
+
+function renderCiMetaRow(ci) {
+  const items = [];
+  items.push(`CI: <strong>${escapeHtml(ci.provider || 'unknown')}</strong>`);
+  if (ci.repository) items.push(`Repo: <strong>${escapeHtml(ci.repository)}</strong>`);
+  if (ci.pull_request) items.push(`PR: <strong>#${escapeHtml(ci.pull_request)}</strong>`);
+  if (ci.commit_sha) items.push(`Commit: <strong>${escapeHtml(String(ci.commit_sha).slice(0, 12))}</strong>`);
+  if (ci.run_url) {
+    items.push(`<a class="text-link" href="${escapeHtml(ci.run_url)}" target="_blank" rel="noreferrer">CI run</a>`);
+  }
+  if (ci.artifact_name) items.push(`Artifact: <strong>${escapeHtml(ci.artifact_name)}</strong>`);
+  return `<div class="meta-row ci-meta-row">${items.map((item) => `<div>${item}</div>`).join('')}</div>`;
 }
 
 function renderInsightRail() {

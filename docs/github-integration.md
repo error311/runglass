@@ -25,7 +25,7 @@ runglass github comment --receipt latest --repo error311/runglass --pr 123
 In GitHub Actions pull-request workflows:
 
 ```bash
-runglass github comment --receipt latest --auto
+runglass github comment --receipt runglass-receipt/receipt.json --auto
 ```
 
 RunGlass uses a hidden marker to update an existing RunGlass comment instead of adding a duplicate:
@@ -93,10 +93,12 @@ jobs:
 
       - name: Comment RunGlass receipt on PR
         if: always()
-        run: runglass github comment --receipt latest --auto
+        run: runglass github comment --receipt runglass-receipt/receipt.json --auto
         env:
           GITHUB_TOKEN: ${{ github.token }}
 ```
+
+The comment command posts Markdown only. Upload `runglass-receipt/` with `actions/upload-artifact` so reviewers can open the full receipt from the CI run.
 
 ## API Behavior
 

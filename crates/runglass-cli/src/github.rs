@@ -194,10 +194,18 @@ fn parse_pull_ref(value: &str) -> Option<u64> {
 }
 
 fn render_comment_body(report: &RunReport, run_url: Option<&str>) -> String {
+    let run_url = run_url.filter(|value| !value.trim().is_empty());
     let mut body = render_summary_markdown_receipt(report)
         .trim_end()
         .to_string();
-    if let Some(run_url) = run_url.filter(|value| !value.trim().is_empty()) {
+    let footer = if run_url.is_some() {
+        let artifact = markdown_inline_code_text(&ci_artifact_name(report));
+        format!("Full receipt: see the uploaded `{artifact}` artifact in the CI run.")
+    } else {
+        "Full receipt: generated locally by RunGlass.".to_string()
+    };
+    body = body.replace("Full receipt: see attached artifact.", &footer);
+    if let Some(run_url) = run_url {
         body.push_str("\n\nCI run: ");
         body.push_str(run_url);
     }
@@ -205,6 +213,21 @@ fn render_comment_body(report: &RunReport, run_url: Option<&str>) -> String {
     body.push_str(COMMENT_MARKER);
     body.push('\n');
     body
+}
+
+fn ci_artifact_name(report: &RunReport) -> String {
+    report
+        .ci
+        .as_ref()
+        .and_then(|ci| ci.artifact_name.as_deref())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("runglass-receipt")
+        .to_string()
+}
+
+fn markdown_inline_code_text(value: &str) -> String {
+    value.replace('`', "\\`")
 }
 
 fn token_source() -> Option<String> {
@@ -339,7 +362,7 @@ mod tests {
     use super::{
         parse_github_remote, parse_pull_ref, parse_repo, render_comment_body, COMMENT_MARKER,
     };
-    use runglass_core::fixture::sample_report;
+    use runglass_core::{fixture::sample_report, CiMetadata};
 
     #[test]
     fn parses_common_github_remote_urls() {
@@ -375,7 +398,38 @@ mod tests {
             Some("https://github.com/error311/runglass/actions/runs/1"),
         );
         assert!(body.contains("## RunGlass Receipt"));
+        assert!(body
+            .contains("Full receipt: see the uploaded `runglass-receipt` artifact in the CI run."));
         assert!(body.contains("CI run: https://github.com/error311/runglass/actions/runs/1"));
+        assert!(body.contains(COMMENT_MARKER));
+    }
+
+    #[test]
+    fn comment_body_uses_ci_artifact_name_when_present() {
+        let mut report = sample_report("github-comment-artifact-test".to_string());
+        report.ci = Some(CiMetadata {
+            provider: "github".to_string(),
+            repository: Some("error311/runglass".to_string()),
+            pull_request: Some(1),
+            commit_sha: None,
+            run_url: None,
+            artifact_name: Some("custom-receipt".to_string()),
+            artifact_path: None,
+        });
+        let body = render_comment_body(
+            &report,
+            Some("https://github.com/error311/runglass/actions/runs/1"),
+        );
+        assert!(body
+            .contains("Full receipt: see the uploaded `custom-receipt` artifact in the CI run."));
+    }
+
+    #[test]
+    fn local_comment_body_does_not_claim_attached_artifact() {
+        let report = sample_report("github-comment-local-test".to_string());
+        let body = render_comment_body(&report, None);
+        assert!(body.contains("Full receipt: generated locally by RunGlass."));
+        assert!(!body.contains("see attached artifact"));
         assert!(body.contains(COMMENT_MARKER));
     }
 }

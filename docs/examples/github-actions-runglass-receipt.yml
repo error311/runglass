@@ -1,4 +1,4 @@
-name: RunGlass Receipt
+name: RunGlass PR Receipt
 
 on:
   pull_request:
@@ -18,10 +18,10 @@ jobs:
       - name: Install RunGlass
         run: cargo install runglass --locked
 
-      - name: Run command with a receipt
+      - name: Run command with RunGlass
         run: |
-          runglass ci --provider github --deep --output runglass-receipt -- \
-            codex exec "fix this failing test"
+          runglass ci --provider github --output runglass-receipt -- \
+            npm test
 
       - name: Upload RunGlass receipt
         if: always()

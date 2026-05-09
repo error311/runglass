@@ -7,7 +7,7 @@
 
 **Run a command. Get a receipt for what changed.**
 
-RunGlass is a Linux-first CLI for commands where terminal history is not enough: AI agents, install scripts, package managers, Docker Compose, deploy scripts, and anything else you want an audit trail for.
+RunGlass is a Linux-first CLI for commands where terminal history is not enough: AI agents, install scripts, package managers, Docker Compose, deploy scripts, CI jobs, and anything else you want an audit trail for.
 
 ```bash
 runglass run --deep codex exec "fix this failing test"
@@ -21,12 +21,13 @@ Terminal history shows what you ran. RunGlass shows what happened:
 - outbound network hosts and listening ports
 - Docker containers, images, volumes, networks, and published ports
 - risk notes for changes worth reviewing
-- HTML, Markdown, JSON, compact summary, AI summary, bundle, and reverse-patch exports
+- HTML, Markdown, JSON, compact summaries, AI summaries, bundles, CI artifacts, and reverse-patch exports
 
-Example CI/PR use case:
+CI/PR use case:
 
 ```bash
-runglass ci --provider github --deep --out runglass-receipt -- codex exec "fix this failing test"
+runglass ci --provider github --deep --output runglass-receipt -- codex exec "fix this failing test"
+runglass github comment --receipt runglass-receipt/receipt.json --auto
 ```
 
 ## What You Get
@@ -39,7 +40,7 @@ Files:   3 created, 2 modified, 0 deleted
 Runtime: 7 child processes, 2 outbound hosts, 0 listening ports
 Docker:  0 containers, 0 images, 0 volumes
 Risk:    low
-Exports: receipt.html, receipt.md, receipt.json
+Exports: receipt.html, receipt.md, receipt.json, summary.md, ai-summary.txt
 ```
 
 Supported receipts can also preview and apply file reverts when RunGlass has stored the needed before-run snapshots.
@@ -67,7 +68,13 @@ source "$HOME/.cargo/env"
 cargo build
 ```
 
-Install the CLI into your Cargo bin directory:
+Install from crates.io:
+
+```bash
+cargo install runglass --locked
+```
+
+Or install the local checkout into your Cargo bin directory:
 
 ```bash
 source "$HOME/.cargo/env"
@@ -189,7 +196,7 @@ runglass export latest --format ai
 
 ## GitHub PR Comments
 
-RunGlass can post or update a compact receipt summary on a pull request:
+RunGlass works with GitHub pull requests and GitHub Actions. It can post or update one compact receipt summary on a pull request:
 
 ```bash
 runglass github detect
@@ -197,34 +204,42 @@ runglass github comment --receipt latest --repo error311/runglass --pr 123 --dry
 runglass github comment --receipt latest --repo error311/runglass --pr 123
 ```
 
-In GitHub Actions pull-request workflows, use `--auto` to infer the repository, PR number, commit SHA, and run URL:
+In GitHub Actions pull-request workflows, use `--auto` with the CI receipt JSON to infer the repository, PR number, commit SHA, and run URL:
 
 ```bash
-runglass github comment --receipt latest --auto
+runglass github comment --receipt runglass-receipt/receipt.json --auto
 ```
 
 Authentication is read from `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token`. RunGlass does not accept GitHub tokens as CLI arguments, so tokens do not need to appear in shell history or process listings. Tokens are not written into receipt artifacts. The GitHub token needs permission to write issue or pull request comments.
 
-See [GitHub integration docs](docs/github-integration.md) for workflow examples and token permissions.
+See [GitHub integration docs](docs/github-integration.md) for workflow examples, API behavior, and token permissions.
 
 ## CI Receipts
 
 Use `runglass ci` when an agent, install script, or remote runner should leave reviewable artifacts behind:
 
 ```bash
-runglass ci --provider github --deep --out runglass-receipt -- codex exec "fix this failing test"
+runglass ci --provider github --deep --output runglass-receipt -- codex exec "fix this failing test"
 ```
 
-The command writes `receipt.html`, `receipt.md`, `receipt.json`, `summary.md`, and `ai-summary.txt` to the output directory. In CI mode, RunGlass returns the wrapped command's exit code after artifacts are written, so failing commands still fail the job while keeping the receipt available.
+The command writes a stable receipt directory with `receipt.html`, `receipt.md`, `receipt.json`, `summary.md`, `ai-summary.txt`, `reverse.patch`, `bundle.tar`, stdout/stderr captures, metadata, diffs, and file snapshots when available. In CI mode, RunGlass returns the wrapped command's exit code after artifacts are written, so failing commands still fail the job while keeping the receipt available.
 
-In GitHub Actions, `runglass ci --provider github` appends the compact Markdown summary to `$GITHUB_STEP_SUMMARY` when that file is available. In generic CI, publish the output directory as an artifact or append `summary.md` to your platform's job summary:
+In GitHub Actions, `runglass ci --provider github` appends the compact Markdown summary to `$GITHUB_STEP_SUMMARY` when that file is available. Upload the output directory as an artifact, then comment on the PR from the generated `receipt.json`:
 
-```bash
-runglass ci --out runglass-receipt -- npm test
-cat runglass-receipt/summary.md >> "$GITHUB_STEP_SUMMARY"
+```yaml
+- run: runglass ci --provider github --output runglass-receipt -- npm test
+- uses: actions/upload-artifact@v4
+  if: always()
+  with:
+    name: runglass-receipt
+    path: runglass-receipt/
+- run: runglass github comment --receipt runglass-receipt/receipt.json --auto
+  if: always() && github.event_name == 'pull_request'
+  env:
+    GITHUB_TOKEN: ${{ github.token }}
 ```
 
-Starter workflows are included for [GitHub Actions](examples/ci/github-actions.yml) and [GitLab CI](examples/ci/gitlab-ci.yml).
+Starter workflows are included for [GitHub Actions](docs/examples/github-actions-runglass-receipt.yml) and [GitLab CI](docs/examples/gitlab-runglass-receipt.yml). See [CI receipt workflows](docs/ci.md) for the full artifact layout and local smoke test.
 
 ## Observation Modes
 

@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 pub struct RunReport {
     pub schema_version: String,
     pub run: RunMeta,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ci: Option<CiMetadata>,
     pub summary: Summary,
     pub events: Vec<TimelineEvent>,
     pub processes: Vec<ProcessInfo>,
@@ -20,6 +22,23 @@ pub struct RunReport {
     pub stdout: Option<String>,
     pub stderr: Option<String>,
     pub limitations: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CiMetadata {
+    pub provider: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit_sha: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

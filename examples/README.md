@@ -104,7 +104,8 @@ Use this when you want a receipt for:
 
 Use these when you want remote runners or agent jobs to leave behind:
 - HTML, Markdown, and JSON receipts
-- a compact CI summary
+- compact CI and AI summaries
+- stdout/stderr captures, diffs, reverse patch, and a receipt bundle
 - a failing job status when the wrapped command fails
 
 Receipts themselves are not committed here. RunGlass generates them locally because they depend on your machine, Docker state, installed tools, working directory, and command output.

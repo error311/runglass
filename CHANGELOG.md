@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.2.0 - 05/09/2026
+
+- Added a stable CI receipt directory layout with HTML, Markdown, JSON, compact summary, AI summary, reverse patch, stdout/stderr captures, diff artifacts, file snapshots, metadata, and `bundle.tar`.
+- Added CI metadata to receipt JSON and the browser UI so CI receipts can show provider, repository, PR, commit, run URL, and artifact name when available.
+- Updated GitHub PR comments to read receipts from `runglass-receipt/receipt.json` and use context-aware artifact wording for local dry runs versus CI runs.
+- Added ready-to-copy GitHub Actions and GitLab CI workflow examples under `docs/examples/`.
+- Documented first-class CI/PR receipt workflows, artifact upload behavior, exit-code behavior, and local smoke tests.
+- Refreshed README copy and showcase media for the updated receipt UI.
+
 ## v0.1.5 - 05/08/2026
 
 - Added `runglass github detect` for local and GitHub Actions repository/PR context detection.

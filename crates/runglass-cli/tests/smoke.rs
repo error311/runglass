@@ -142,7 +142,45 @@ fn smoke_run_export_bundle_list_snapshot_and_doctor() {
     assert!(ci_out.join("receipt.md").exists());
     assert!(ci_out.join("summary.md").exists());
     assert!(ci_out.join("ai-summary.txt").exists());
+    assert!(ci_out.join("reverse.patch").exists());
+    assert!(ci_out.join("bundle.tar").exists());
+    assert!(ci_out.join("artifacts/stdout.txt").exists());
+    assert!(ci_out.join("artifacts/stderr.txt").exists());
+    assert!(ci_out.join("artifacts/metadata.json").exists());
+    assert!(ci_out.join("artifacts/diffs").is_dir());
+    assert!(ci_out.join("artifacts/file-snapshots").is_dir());
     assert!(String::from_utf8_lossy(&ci.stdout).contains("Created CI receipt"));
+    assert!(String::from_utf8_lossy(&ci.stdout).contains("bundle.tar"));
+    assert!(
+        String::from_utf8_lossy(&fs::read(ci_out.join("receipt.json")).expect("ci json"))
+            .contains("\"ci\"")
+    );
+
+    let ci_receipt_json = ci_out.join("receipt.json").to_string_lossy().to_string();
+    let github_dry_run = Command::new(runglass_bin())
+        .env("RUNGLASS_DATA_HOME", &data)
+        .current_dir(&work)
+        .args([
+            "github",
+            "comment",
+            "--receipt",
+            ci_receipt_json.as_str(),
+            "--repo",
+            "error311/runglass",
+            "--pr",
+            "1",
+            "--dry-run",
+        ])
+        .output()
+        .expect("github dry-run command");
+    assert!(
+        github_dry_run.status.success(),
+        "{}",
+        String::from_utf8_lossy(&github_dry_run.stderr)
+    );
+    let github_body = String::from_utf8_lossy(&github_dry_run.stdout);
+    assert!(github_body.contains("## RunGlass Receipt"));
+    assert!(github_body.contains("Full receipt: generated locally by RunGlass."));
 
     let doctor = Command::new(runglass_bin())
         .env("RUNGLASS_DATA_HOME", &data)

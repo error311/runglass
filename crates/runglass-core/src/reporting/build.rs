@@ -105,6 +105,7 @@ pub fn build_command_report(
 
     RunReport {
         schema_version: "0.1.0".to_string(),
+        ci: None,
         run: RunMeta {
             id: run_id,
             command_display: command_display(command),

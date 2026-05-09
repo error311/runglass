@@ -12,8 +12,8 @@ use runglass_core::{
     prepare_run_paths, preview_revert, prune_reports, render_markdown_receipt,
     render_reverse_patch, render_summary_markdown_receipt, report_run_dir, reports_dir,
     run_observed_command_in_mode, snapshot_directory_with_stats, snapshot_file_byte_limit,
-    write_report_bundle, ObservationMode, RevertConflictPolicy, RevertOptions, RiskLevel,
-    RunReport, RunStatus,
+    write_report_bundle, CiMetadata, ObservationMode, RevertConflictPolicy, RevertOptions,
+    RiskLevel, RunReport, RunStatus,
 };
 use runglass_web::{serve_report, serve_report_on_port, write_standalone_html};
 
@@ -346,7 +346,7 @@ fn main() -> Result<()> {
 }
 
 fn github_comment_command(args: GithubCommentArgs) -> Result<()> {
-    let report = resolve_receipt(&args.receipt)?;
+    let report = resolve_receipt_input(&args.receipt)?;
     let options = github::GithubCommentOptions {
         repo: args.repo,
         pr: args.pr,
@@ -399,13 +399,10 @@ fn ci_command(
         ObservationMode::Normal
     };
     let provider = detect_ci_provider(provider);
-    let (report, _paths) = run_observed_command_in_mode(command, mode)?;
-    let artifacts = write_ci_artifacts(&report, out, formats)?;
+    let (mut report, _paths) = run_observed_command_in_mode(command, mode)?;
+    report.ci = Some(build_ci_metadata(provider, out));
+    let artifacts = write_ci_artifacts(&report, provider, out, formats)?;
     let summary = render_ci_summary(&report, provider, &artifacts);
-    let summary_path = out.join("summary.md");
-    fs::write(&summary_path, &summary)?;
-    let ai_summary_path = out.join("ai-summary.txt");
-    fs::write(&ai_summary_path, render_ai_receipt_summary(&report))?;
 
     println!("Created CI receipt {}", report.run.id);
     println!("{}", out.display());
@@ -429,10 +426,13 @@ fn ci_command(
 
 fn write_ci_artifacts(
     report: &RunReport,
+    provider: CiProvider,
     out: &Path,
     formats: &[CiFormat],
 ) -> Result<Vec<CiArtifact>> {
     fs::create_dir_all(out)?;
+    let artifacts_dir = out.join("artifacts");
+    fs::create_dir_all(&artifacts_dir)?;
     let mut artifacts = Vec::new();
 
     if formats.contains(&CiFormat::Html) {
@@ -462,7 +462,295 @@ fn write_ci_artifacts(
         });
     }
 
+    let patch_path = out.join("reverse.patch");
+    fs::write(&patch_path, render_reverse_patch(report)?)?;
+    artifacts.push(CiArtifact {
+        label: "Reverse patch",
+        path: patch_path,
+    });
+
+    let stdout_path = artifacts_dir.join("stdout.txt");
+    fs::write(
+        &stdout_path,
+        report_output_text(report.stdout.as_deref(), &report.stdout_path)?,
+    )?;
+    artifacts.push(CiArtifact {
+        label: "stdout",
+        path: stdout_path,
+    });
+
+    let stderr_path = artifacts_dir.join("stderr.txt");
+    fs::write(
+        &stderr_path,
+        report_output_text(report.stderr.as_deref(), &report.stderr_path)?,
+    )?;
+    artifacts.push(CiArtifact {
+        label: "stderr",
+        path: stderr_path,
+    });
+
+    let diffs_dir = artifacts_dir.join("diffs");
+    if diffs_dir.exists() {
+        fs::remove_dir_all(&diffs_dir)?;
+    }
+    fs::create_dir_all(&diffs_dir)?;
+    let diff_count = write_ci_diff_artifacts(report, &diffs_dir)?;
+    artifacts.push(CiArtifact {
+        label: if diff_count == 0 {
+            "Diff directory (empty)"
+        } else {
+            "Diff directory"
+        },
+        path: diffs_dir,
+    });
+
+    let snapshots_dir = artifacts_dir.join("file-snapshots");
+    if snapshots_dir.exists() {
+        fs::remove_dir_all(&snapshots_dir)?;
+    }
+    copy_ci_file_snapshots(report, &snapshots_dir)?;
+    artifacts.push(CiArtifact {
+        label: "File snapshots",
+        path: snapshots_dir,
+    });
+
+    let metadata_path = artifacts_dir.join("metadata.json");
+    fs::write(
+        &metadata_path,
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema": "runglass-ci-artifacts-v1",
+            "receipt_id": report.run.id,
+            "provider": ci_provider_label(provider),
+            "command": report.run.command_display,
+            "status": report.run.status,
+            "exit_code": report.run.exit_code,
+            "generated_at": Utc::now(),
+            "ci": report.ci,
+            "contents": [
+                "receipt.html",
+                "receipt.md",
+                "receipt.json",
+                "summary.md",
+                "ai-summary.txt",
+                "reverse.patch",
+                "bundle.tar",
+                "artifacts/stdout.txt",
+                "artifacts/stderr.txt",
+                "artifacts/diffs/",
+                "artifacts/file-snapshots/"
+            ]
+        }))?,
+    )?;
+    artifacts.push(CiArtifact {
+        label: "CI metadata",
+        path: metadata_path,
+    });
+
+    let summary_path = out.join("summary.md");
+    artifacts.push(CiArtifact {
+        label: "CI summary",
+        path: summary_path.clone(),
+    });
+    let ai_summary_path = out.join("ai-summary.txt");
+    artifacts.push(CiArtifact {
+        label: "AI summary",
+        path: ai_summary_path.clone(),
+    });
+    let bundle_path = out.join("bundle.tar");
+    artifacts.push(CiArtifact {
+        label: "Receipt bundle",
+        path: bundle_path.clone(),
+    });
+
+    let summary = render_ci_summary(report, provider, &artifacts);
+    fs::write(&summary_path, &summary)?;
+    fs::write(&ai_summary_path, render_ai_receipt_summary(report))?;
+    write_ci_bundle(report, out, &bundle_path)?;
+
     Ok(artifacts)
+}
+
+fn build_ci_metadata(provider: CiProvider, out: &Path) -> CiMetadata {
+    let provider_label = ci_provider_label(provider).to_string();
+    let artifact_name = out
+        .file_name()
+        .and_then(|value| value.to_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("runglass-receipt")
+        .to_string();
+    let (repository, pull_request, commit_sha, run_url) = match provider {
+        CiProvider::Github => (
+            std::env::var("GITHUB_REPOSITORY").ok(),
+            github_pull_request_number(),
+            std::env::var("GITHUB_SHA").ok(),
+            github_run_url(),
+        ),
+        CiProvider::Gitlab => (
+            std::env::var("CI_PROJECT_PATH").ok(),
+            std::env::var("CI_MERGE_REQUEST_IID")
+                .ok()
+                .and_then(|value| value.parse().ok()),
+            std::env::var("CI_COMMIT_SHA").ok(),
+            std::env::var("CI_PIPELINE_URL").ok(),
+        ),
+        CiProvider::Auto | CiProvider::Generic => (None, None, None, None),
+    };
+
+    CiMetadata {
+        provider: provider_label,
+        repository,
+        pull_request,
+        commit_sha,
+        run_url,
+        artifact_name: Some(artifact_name),
+        artifact_path: Some(out.display().to_string()),
+    }
+}
+
+fn ci_provider_label(provider: CiProvider) -> &'static str {
+    match provider {
+        CiProvider::Auto => "auto",
+        CiProvider::Github => "github",
+        CiProvider::Gitlab => "gitlab",
+        CiProvider::Generic => "generic",
+    }
+}
+
+fn github_run_url() -> Option<String> {
+    let server =
+        std::env::var("GITHUB_SERVER_URL").unwrap_or_else(|_| "https://github.com".to_string());
+    let repository = std::env::var("GITHUB_REPOSITORY").ok()?;
+    let run_id = std::env::var("GITHUB_RUN_ID").ok()?;
+    Some(format!("{server}/{repository}/actions/runs/{run_id}"))
+}
+
+fn github_pull_request_number() -> Option<u64> {
+    std::env::var("GITHUB_REF")
+        .ok()
+        .and_then(|value| {
+            let mut parts = value.split('/');
+            match (parts.next(), parts.next(), parts.next()) {
+                (Some("refs"), Some("pull"), Some(number)) => number.parse().ok(),
+                _ => None,
+            }
+        })
+        .or_else(|| {
+            let path = std::env::var("GITHUB_EVENT_PATH").ok()?;
+            let data = fs::read_to_string(path).ok()?;
+            let value: serde_json::Value = serde_json::from_str(&data).ok()?;
+            value
+                .pointer("/pull_request/number")
+                .and_then(|number| number.as_u64())
+                .or_else(|| value.pointer("/number").and_then(|number| number.as_u64()))
+        })
+}
+
+fn report_output_text(inline: Option<&str>, path: &Option<String>) -> Result<String> {
+    if let Some(value) = inline {
+        return Ok(value.to_string());
+    }
+    if let Some(path) = path {
+        let path = Path::new(path);
+        if path.exists() {
+            return Ok(fs::read_to_string(path)?);
+        }
+    }
+    Ok(String::new())
+}
+
+fn write_ci_diff_artifacts(report: &RunReport, diffs_dir: &Path) -> Result<usize> {
+    let mut count = 0;
+    for file in &report.files {
+        let Some(diff) = &file.diff else {
+            continue;
+        };
+        if diff.content.trim().is_empty() {
+            continue;
+        }
+        count += 1;
+        let name = format!("{count:03}_{}.diff", slug_for_artifact(&file.path));
+        fs::write(diffs_dir.join(name), &diff.content)?;
+    }
+    Ok(count)
+}
+
+fn slug_for_artifact(value: &str) -> String {
+    let mut slug = String::new();
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' {
+            slug.push(ch);
+        } else {
+            slug.push('-');
+        }
+        if slug.len() >= 80 {
+            break;
+        }
+    }
+    let slug = slug.trim_matches('-').to_string();
+    if slug.is_empty() {
+        "file".to_string()
+    } else {
+        slug
+    }
+}
+
+fn copy_ci_file_snapshots(report: &RunReport, target: &Path) -> Result<()> {
+    fs::create_dir_all(target)?;
+    let source = report_run_dir(&report.run.id)?.join("file-artifacts");
+    if source.exists() {
+        copy_dir_contents(&source, target)?;
+    }
+    Ok(())
+}
+
+fn copy_dir_contents(source: &Path, target: &Path) -> Result<()> {
+    fs::create_dir_all(target)?;
+    for entry in fs::read_dir(source)? {
+        let entry = entry?;
+        let source_path = entry.path();
+        let target_path = target.join(entry.file_name());
+        if source_path.is_dir() {
+            copy_dir_contents(&source_path, &target_path)?;
+        } else if source_path.is_file() {
+            fs::copy(&source_path, &target_path)?;
+        }
+    }
+    Ok(())
+}
+
+fn write_ci_bundle(report: &RunReport, out: &Path, bundle_path: &Path) -> Result<()> {
+    let bundle_root = format!("runglass-receipt-{}", report.run.id);
+    let mut bundle = fs::File::create(bundle_path)?;
+    for relative in [
+        "receipt.html",
+        "receipt.md",
+        "summary.md",
+        "ai-summary.txt",
+        "receipt.json",
+        "reverse.patch",
+        "artifacts/stdout.txt",
+        "artifacts/stderr.txt",
+        "artifacts/metadata.json",
+    ] {
+        append_tar_file(
+            &mut bundle,
+            &format!("{bundle_root}/{relative}"),
+            &out.join(relative),
+        )?;
+    }
+    append_tar_tree(
+        &mut bundle,
+        &format!("{bundle_root}/artifacts/diffs"),
+        &out.join("artifacts/diffs"),
+    )?;
+    append_tar_tree(
+        &mut bundle,
+        &format!("{bundle_root}/artifacts/file-snapshots"),
+        &out.join("artifacts/file-snapshots"),
+    )?;
+    bundle.write_all(&[0_u8; 1024])?;
+    Ok(())
 }
 
 fn detect_ci_provider(provider: CiProvider) -> CiProvider {
@@ -530,8 +818,6 @@ fn render_ci_summary(report: &RunReport, provider: CiProvider, artifacts: &[CiAr
                 artifact.path.display()
             ));
         }
-        lines.push("- CI summary: `summary.md`".to_string());
-        lines.push("- AI summary: `ai-summary.txt`".to_string());
     }
 
     match provider {
@@ -1141,6 +1427,22 @@ fn resolve_receipt(selector: &str) -> Result<RunReport> {
         return Err(anyhow!("receipt selector cannot be empty"));
     }
     load_report(selector)
+}
+
+fn resolve_receipt_input(selector: &str) -> Result<RunReport> {
+    if selector.trim().is_empty() {
+        return Err(anyhow!("receipt selector cannot be empty"));
+    }
+
+    let path = Path::new(selector);
+    if path.is_file() {
+        let data = fs::read_to_string(path)?;
+        return serde_json::from_str(&data).map_err(|error| {
+            anyhow!("failed to read receipt JSON at {}: {error}", path.display())
+        });
+    }
+
+    resolve_receipt(selector)
 }
 
 #[cfg(test)]

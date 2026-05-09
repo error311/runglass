@@ -509,6 +509,7 @@ mod tests {
 
             let report = RunReport {
                 schema_version: "0.1.0".to_string(),
+                ci: None,
                 run: RunMeta {
                     id: run_id.clone(),
                     command_display: "sh -c 'test revert'".to_string(),
