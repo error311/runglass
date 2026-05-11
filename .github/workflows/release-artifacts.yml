@@ -35,8 +35,16 @@ jobs:
         with:
           ref: ${{ steps.release.outputs.tag }}
 
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Build release binary
         run: cargo build --release --locked -p runglass
+
+      - name: Smoke test release binary
+        run: |
+          target/release/runglass --version
+          target/release/runglass doctor
 
       - name: Package binary
         run: |

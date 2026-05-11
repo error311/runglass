@@ -51,22 +51,16 @@ Supported receipts can also preview and apply file reverts when RunGlass has sto
 
 [MP4 version](https://raw.githubusercontent.com/error311/runglass/main/assets/showcase/provision-stack.mp4)
 
-Example receipts:
+This full-stack demo wraps a provisioning command and shows the resulting file changes, processes, network activity, Docker changes, timeline, risk notes, and revert/export controls in one receipt.
+
+More examples:
 
 - AI/code-change flow: [GIF](https://raw.githubusercontent.com/error311/runglass/main/assets/showcase/live-receipt-build.gif), [MP4](https://raw.githubusercontent.com/error311/runglass/main/assets/showcase/live-receipt-build.mp4)
 - Docker Compose flow: [GIF](https://raw.githubusercontent.com/error311/runglass/main/assets/showcase/docker-compose-up.gif), [MP4](https://raw.githubusercontent.com/error311/runglass/main/assets/showcase/docker-compose-up.mp4)
-- Full-stack flow: [GIF](https://raw.githubusercontent.com/error311/runglass/main/assets/showcase/provision-stack.gif), [MP4](https://raw.githubusercontent.com/error311/runglass/main/assets/showcase/provision-stack.mp4)
 
 ## Install
 
 RunGlass is Linux-first in this release. `normal` mode uses Linux process and socket sources, and `deep` mode uses `strace` when available. macOS and Windows command observation is not supported yet.
-
-Build locally:
-
-```bash
-source "$HOME/.cargo/env"
-cargo build
-```
 
 Install from crates.io:
 
@@ -74,16 +68,39 @@ Install from crates.io:
 cargo install runglass --locked
 ```
 
-Or install the local checkout into your Cargo bin directory:
+Prebuilt Linux x86_64 release archives are published from tagged GitHub releases and include SHA-256 checksum files:
+
+```text
+runglass-<version>-x86_64-unknown-linux-gnu.tar.gz
+runglass-<version>-x86_64-unknown-linux-gnu.tar.gz.sha256
+```
+
+For local development, install this checkout into your Cargo bin directory:
 
 ```bash
 source "$HOME/.cargo/env"
-cargo install --path crates/runglass-cli
+cargo install --path crates/runglass-cli --locked
+```
+
+Or build without installing:
+
+```bash
+source "$HOME/.cargo/env"
+cargo build
 ```
 
 `normal` mode is a single-binary experience. The embedded web UI, local server, collectors, exports, and revert flow ship inside the Rust `runglass` binary.
 
 `deep` mode is still the same binary, but on Linux it uses `strace` when available for better short-lived process and socket visibility.
+
+### Platform Support
+
+| Platform | Status | Notes |
+| --- | --- | --- |
+| Linux x86_64 | Supported | Primary target. `normal` mode uses `/proc` and socket sampling; `deep` mode can use `strace`. |
+| Linux other architectures | Expected to build | Not yet covered by release binaries. Build from crates.io/source. |
+| macOS | Not supported for observation | The CLI may build, but command observation is Linux-first and currently exits clearly on unsupported platforms. |
+| Windows | Not supported | Command observation is not implemented for Windows yet. |
 
 ## Quick Start
 
@@ -240,6 +257,8 @@ In GitHub Actions, `runglass ci --provider github` appends the compact Markdown 
 ```
 
 Starter workflows are included for [GitHub Actions](docs/examples/github-actions-runglass-receipt.yml) and [GitLab CI](docs/examples/gitlab-runglass-receipt.yml). See [CI receipt workflows](docs/ci.md) for the full artifact layout and local smoke test.
+
+RunGlass also dogfoods this workflow in its own repository: pull requests run `cargo test --workspace --locked` through `runglass ci`, upload the generated receipt artifact, and update the RunGlass PR comment when token permissions allow it.
 
 ## Observation Modes
 

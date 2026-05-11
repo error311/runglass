@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.2.1 - 05/11/2026
+
+- Made `cargo install runglass --locked` the primary README install path and documented local checkout installation separately.
+- Added a Linux-first platform support matrix with explicit macOS and Windows observation limitations.
+- Added a RunGlass dogfood GitHub Actions workflow that runs workspace tests through `runglass ci`, uploads the receipt artifact, and comments on pull requests when permissions allow.
+- Tightened GitHub Actions examples to avoid comment attempts on forked pull requests without write permission.
+- Documented GitHub release binary archives and SHA-256 checksum artifacts for Linux x86_64 releases, and made the release artifact workflow install Rust explicitly before building.
+- Focused the README demo section around one canonical receipt while keeping secondary demo links available.
+
 ## v0.2.0 - 05/09/2026
 
 - Added a stable CI receipt directory layout with HTML, Markdown, JSON, compact summary, AI summary, reverse patch, stdout/stderr captures, diff artifacts, file snapshots, metadata, and `bundle.tar`.

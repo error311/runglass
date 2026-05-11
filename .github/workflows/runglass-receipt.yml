@@ -1,7 +1,8 @@
-name: RunGlass PR Receipt
+name: RunGlass Receipt
 
 on:
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -9,19 +10,26 @@ permissions:
   issues: write
   pull-requests: read
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   receipt:
+    name: Dogfood CI receipt
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Install RunGlass
-        run: cargo install runglass --locked
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Run command with RunGlass
-        run: |
-          runglass ci --provider github --output runglass-receipt -- \
-            npm test
+      - name: Install RunGlass from this checkout
+        run: cargo install --path crates/runglass-cli --locked
+
+      - name: Run tests through RunGlass
+        run: runglass ci --provider github --output runglass-receipt -- cargo test --workspace --locked
 
       - name: Upload RunGlass receipt
         if: always()

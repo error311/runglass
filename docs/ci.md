@@ -59,6 +59,8 @@ The important pieces are:
 
 The PR comment API does not attach files directly. The workflow uploads `runglass-receipt/` as a GitHub Actions artifact, and the comment points reviewers to the CI run where that artifact lives.
 
+RunGlass dogfoods this pattern in [`.github/workflows/runglass-receipt.yml`](../.github/workflows/runglass-receipt.yml). Pull requests run the workspace tests through `runglass ci`, upload the receipt directory, and update one RunGlass PR comment when the workflow has permission to write issue comments.
+
 ## GitLab CI
 
 Use the example at [`docs/examples/gitlab-runglass-receipt.yml`](examples/gitlab-runglass-receipt.yml).
