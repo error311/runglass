@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
   issues: write
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   receipt:
@@ -32,6 +32,9 @@ jobs:
 
       - name: Comment RunGlass receipt on PR
         if: always() && github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork && hashFiles('runglass-receipt/receipt.json') != ''
-        run: runglass github comment --receipt runglass-receipt/receipt.json --auto
+        run: |
+          if ! runglass github comment --receipt runglass-receipt/receipt.json --auto; then
+            echo "::warning::RunGlass could not post a PR comment. The receipt artifact was uploaded; check workflow token permissions."
+          fi
         env:
           GITHUB_TOKEN: ${{ github.token }}

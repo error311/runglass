@@ -61,6 +61,8 @@ The PR comment API does not attach files directly. The workflow uploads `runglas
 
 RunGlass dogfoods this pattern in [`.github/workflows/runglass-receipt.yml`](../.github/workflows/runglass-receipt.yml). Pull requests run the workspace tests through `runglass ci`, upload the receipt directory, and update one RunGlass PR comment when the workflow has permission to write issue comments.
 
+If GitHub returns `Resource not accessible by integration`, the receipt artifact is still the source of truth. The PR comment token did not receive comment-write permission, commonly because the workflow is running from a fork or repository Actions settings restrict write permissions.
+
 ## GitLab CI
 
 Use the example at [`docs/examples/gitlab-runglass-receipt.yml`](examples/gitlab-runglass-receipt.yml).
