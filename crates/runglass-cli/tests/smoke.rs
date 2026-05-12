@@ -156,6 +156,34 @@ fn smoke_run_export_bundle_list_snapshot_and_doctor() {
             .contains("\"ci\"")
     );
 
+    let validate_latest = Command::new(runglass_bin())
+        .env("RUNGLASS_DATA_HOME", &data)
+        .current_dir(&work)
+        .args(["validate", "latest"])
+        .output()
+        .expect("validate latest command");
+    assert!(
+        validate_latest.status.success(),
+        "{}",
+        String::from_utf8_lossy(&validate_latest.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&validate_latest.stdout).contains("RunGlass Receipt Validation")
+    );
+
+    let validate_ci = Command::new(runglass_bin())
+        .env("RUNGLASS_DATA_HOME", &data)
+        .current_dir(&work)
+        .args(["validate", ci_out_arg.as_str()])
+        .output()
+        .expect("validate ci command");
+    assert!(
+        validate_ci.status.success(),
+        "{}",
+        String::from_utf8_lossy(&validate_ci.stderr)
+    );
+    assert!(String::from_utf8_lossy(&validate_ci.stdout).contains("Validation passed"));
+
     let ci_receipt_json = ci_out.join("receipt.json").to_string_lossy().to_string();
     let github_dry_run = Command::new(runglass_bin())
         .env("RUNGLASS_DATA_HOME", &data)

@@ -269,6 +269,29 @@ RunGlass currently supports two Linux observation modes:
 
 Docker changes are captured from Docker Engine before/after state. File changes are captured from a scoped working-directory snapshot and diff.
 
+## Trust Model
+
+RunGlass is explicit about collector confidence:
+
+| Area | Confidence | Notes |
+| --- | --- | --- |
+| Files | High | Scoped before/after snapshot of the watched working directory, subject to snapshot size limits and ignore rules. |
+| Docker | High when available | Before/after Docker Engine diff when Docker can be reached. |
+| Processes | Medium in normal, higher in deep | Normal mode uses adaptive `/proc` polling. Deep mode adds `strace` for command-tree exec visibility. |
+| Network | Best effort in normal, higher in deep | Normal mode combines `/proc` socket polling and `ss`; deep mode adds `strace` socket tracing. Attribution can still be incomplete. |
+
+Validate a saved receipt or CI artifact directory:
+
+```bash
+runglass validate latest
+runglass validate runglass-receipt/receipt.json
+runglass validate runglass-receipt/
+```
+
+`validate` treats malformed receipt JSON as an error and reports missing CI artifacts or revert snapshots as warnings. It is meant to answer whether a receipt is structurally useful, not certify that RunGlass observed every system event.
+
+See [RunGlass trust model](docs/trust-model.md) for the longer version.
+
 ## How It Works
 
 RunGlass keeps one command as the unit of review:
@@ -310,6 +333,7 @@ runglass list --query docker --risk medium --mode deep
 runglass open latest
 runglass open <receipt-id> --port 0
 runglass report latest --ai
+runglass validate latest
 runglass prune --keep 50 --dry-run
 runglass delete latest
 runglass doctor

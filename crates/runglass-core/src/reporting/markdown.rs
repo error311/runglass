@@ -70,6 +70,11 @@ pub fn render_markdown_receipt(report: &RunReport) -> String {
         lines.push(format!("- Review next: {} - {}", risk.title, risk.detail));
     }
     lines.push(String::new());
+    lines.push("## Collector Confidence".to_string());
+    for note in collector_confidence_notes(report) {
+        lines.push(format!("- {}: {}", note.label, note.detail));
+    }
+    lines.push(String::new());
     lines.push("## Receipt Metadata".to_string());
     lines.push(format!("Command: `{}`", report.run.command_display));
     lines.push(format!("Receipt ID: `{}`", report.run.id));
@@ -299,6 +304,14 @@ pub fn render_ai_receipt_summary(report: &RunReport) -> String {
         "risk_level: {}",
         risk_label(&report.summary.risk_level)
     ));
+    lines.push("collector_confidence:".to_string());
+    for note in collector_confidence_notes(report) {
+        lines.push(format!(
+            "- {}: {}",
+            note.label.to_ascii_lowercase(),
+            single_line(note.detail)
+        ));
+    }
     lines.push("risk_notes:".to_string());
     if report.risks.is_empty() {
         lines.push("- none".to_string());
@@ -428,6 +441,49 @@ fn docker_change_count(report: &RunReport) -> usize {
             .unwrap_or(0)
 }
 
+struct ConfidenceNote {
+    label: &'static str,
+    detail: &'static str,
+}
+
+fn collector_confidence_notes(report: &RunReport) -> Vec<ConfidenceNote> {
+    let (processes, network) = match report.run.mode {
+        ObservationMode::Deep => (
+            "higher confidence with strace-assisted command-tree exec tracing on Linux; not system-wide tracing",
+            "higher confidence with strace-assisted socket tracing plus socket sampling; attribution can still be incomplete",
+        ),
+        ObservationMode::Normal => (
+            "medium confidence from adaptive /proc polling; very short-lived child processes can be missed",
+            "best-effort confidence from /proc socket polling plus ss sampling; PID attribution can be incomplete",
+        ),
+    };
+
+    let docker = if report.docker.is_some() {
+        "high confidence before/after Docker Engine diff when Docker is available"
+    } else {
+        "not observed in this receipt; RunGlass reports Docker changes only when Docker state is available"
+    };
+
+    vec![
+        ConfidenceNote {
+            label: "Files",
+            detail: "high confidence within the watched working directory and snapshot limits",
+        },
+        ConfidenceNote {
+            label: "Processes",
+            detail: processes,
+        },
+        ConfidenceNote {
+            label: "Network",
+            detail: network,
+        },
+        ConfidenceNote {
+            label: "Docker",
+            detail: docker,
+        },
+    ]
+}
+
 fn review_next_items(report: &RunReport) -> Vec<String> {
     let mut items = Vec::new();
 
@@ -522,6 +578,8 @@ mod tests {
         assert!(markdown.contains("Observation Mode: deep"));
         assert!(markdown.contains("## Key Facts"));
         assert!(markdown.contains("## What Changed"));
+        assert!(markdown.contains("## Collector Confidence"));
+        assert!(markdown.contains("Files: high confidence"));
         assert!(markdown.contains("## Receipt Summary"));
         assert!(markdown.contains("## File Changes"));
         assert!(markdown.contains("## Docker Changes"));
@@ -554,6 +612,7 @@ mod tests {
         assert!(summary.contains("receipt_id: ai-export-test"));
         assert!(summary.contains("status: failed"));
         assert!(summary.contains("exit_code: 1"));
+        assert!(summary.contains("collector_confidence:"));
         assert!(summary.contains("failed_output_excerpt:\n  first failure line"));
         assert!(summary.contains("review_next:"));
         assert!(summary.contains("END_RUNGLASS_RECEIPT_SUMMARY"));

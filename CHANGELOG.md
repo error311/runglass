@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.2 - 05/11/2026
+
+- Added `runglass validate [latest|receipt-id|receipt.json|receipt-dir]` to check receipt JSON, CI artifact layout, and revert snapshot availability.
+- Expanded `runglass doctor` with architecture, working-directory write access, reports-directory write access, shell, and `git` diagnostics.
+- Added collector confidence notes to Markdown and AI receipt exports so file, process, network, and Docker fidelity are explicit.
+- Documented the RunGlass trust model and validation workflow.
+
 ## v0.2.1 - 05/11/2026
 
 - Made `cargo install runglass --locked` the primary README install path and documented local checkout installation separately.

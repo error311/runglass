@@ -12,8 +12,8 @@ use runglass_core::{
     prepare_run_paths, preview_revert, prune_reports, render_markdown_receipt,
     render_reverse_patch, render_summary_markdown_receipt, report_run_dir, reports_dir,
     run_observed_command_in_mode, snapshot_directory_with_stats, snapshot_file_byte_limit,
-    write_report_bundle, CiMetadata, ObservationMode, RevertConflictPolicy, RevertOptions,
-    RiskLevel, RunReport, RunStatus,
+    write_report_bundle, CiMetadata, FileChangeType, ObservationMode, RevertConflictPolicy,
+    RevertOptions, RiskLevel, RunReport, RunStatus,
 };
 use runglass_web::{serve_report, serve_report_on_port, write_standalone_html};
 
@@ -120,7 +120,13 @@ enum Commands {
         #[arg(long = "format", value_enum, value_delimiter = ',')]
         formats: Vec<ExportFormat>,
     },
+    #[command(about = "Check local collector readiness and receipt storage")]
     Doctor,
+    #[command(about = "Validate a saved receipt or CI receipt directory")]
+    Validate {
+        #[arg(default_value = "latest")]
+        receipt: String,
+    },
     Snapshot {
         #[arg(long = "dry-run")]
         dry_run: bool,
@@ -317,6 +323,7 @@ fn main() -> Result<()> {
             },
         ),
         Commands::Doctor => doctor(),
+        Commands::Validate { receipt } => validate_receipt_command(&receipt),
         Commands::Snapshot { dry_run } => snapshot_dry_run(dry_run),
         Commands::Prune { keep, dry_run } => prune_receipts(keep, dry_run),
         Commands::Delete { run_id } => delete_receipt(&run_id),
@@ -1061,20 +1068,40 @@ fn doctor() -> Result<()> {
     println!("RunGlass Doctor");
     let platform_supported = observation_supported();
     print_check("Platform", std::env::consts::OS, platform_supported);
+    print_check("Architecture", std::env::consts::ARCH, true);
     if !platform_supported {
         println!();
         println!("{}", unsupported_platform_message());
     }
+    let cwd = std::env::current_dir()?;
     print_check(
-        "Reports directory",
-        &reports_dir()?.display().to_string(),
-        true,
+        "Working directory",
+        &cwd.display().to_string(),
+        cwd.exists(),
+    );
+    print_check(
+        "Working directory writable",
+        "file snapshot scope",
+        dir_writable(&cwd),
+    );
+    let reports = reports_dir()?;
+    print_check("Reports directory", &reports.display().to_string(), true);
+    print_check(
+        "Reports directory writable",
+        "receipt storage",
+        dir_writable(&reports),
     );
     print_check(
         "Snapshot cap",
         &human_size(snapshot_file_byte_limit()),
         snapshot_file_byte_limit() > 0,
     );
+    print_check(
+        "Shell",
+        &std::env::var("SHELL").unwrap_or_else(|_| "not detected".to_string()),
+        std::env::var_os("SHELL").is_some(),
+    );
+    print_check("git", "repository context helper", command_on_path("git"));
     if platform_supported {
         print_check("ss", "socket sampling helper", command_on_path("ss"));
         print_check(
@@ -1089,6 +1116,308 @@ fn doctor() -> Result<()> {
         "Tip: run `runglass snapshot --dry-run` inside a project to preview file capture scope."
     );
     Ok(())
+}
+
+fn validate_receipt_command(selector: &str) -> Result<()> {
+    let input = load_receipt_for_validation(selector)?;
+    let result = validate_report(&input.report, input.base_dir.as_deref());
+
+    println!("RunGlass Receipt Validation");
+    println!("Source: {}", input.source);
+    println!("Receipt: {}", input.report.run.id);
+    println!("Command: {}", input.report.run.command_display);
+    println!(
+        "Status: {}, exit {}",
+        status_label(&input.report.run.status),
+        input
+            .report
+            .run
+            .exit_code
+            .map(|code| code.to_string())
+            .unwrap_or_else(|| "n/a".to_string())
+    );
+    println!();
+
+    if result.errors.is_empty() {
+        println!("ok\tReceipt JSON parsed and required metadata is present");
+    } else {
+        println!("error\t{} validation error(s)", result.errors.len());
+        for error in &result.errors {
+            println!("- {error}");
+        }
+    }
+
+    if result.warnings.is_empty() {
+        println!("ok\tNo artifact or revert warnings");
+    } else {
+        println!("warn\t{} validation warning(s)", result.warnings.len());
+        for warning in &result.warnings {
+            println!("- {warning}");
+        }
+    }
+
+    if result.errors.is_empty() {
+        println!();
+        println!(
+            "Validation passed{}.",
+            if result.warnings.is_empty() {
+                "".to_string()
+            } else {
+                format!(" with {} warning(s)", result.warnings.len())
+            }
+        );
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "receipt validation failed with {} error(s)",
+            result.errors.len()
+        ))
+    }
+}
+
+struct ValidationInput {
+    report: RunReport,
+    base_dir: Option<PathBuf>,
+    source: String,
+}
+
+#[derive(Default)]
+struct ValidationResult {
+    errors: Vec<String>,
+    warnings: Vec<String>,
+}
+
+fn load_receipt_for_validation(selector: &str) -> Result<ValidationInput> {
+    if selector.trim().is_empty() {
+        return Err(anyhow!("receipt selector cannot be empty"));
+    }
+
+    let path = Path::new(selector);
+    if path.is_dir() {
+        let receipt_path = path.join("receipt.json");
+        let report = read_receipt_json(&receipt_path)?;
+        return Ok(ValidationInput {
+            report,
+            base_dir: Some(path.to_path_buf()),
+            source: receipt_path.display().to_string(),
+        });
+    }
+    if path.is_file() {
+        let report = read_receipt_json(path)?;
+        return Ok(ValidationInput {
+            report,
+            base_dir: path.parent().map(Path::to_path_buf),
+            source: path.display().to_string(),
+        });
+    }
+
+    let report = resolve_receipt(selector)?;
+    let base_dir = report_run_dir(&report.run.id).ok();
+    Ok(ValidationInput {
+        source: selector.to_string(),
+        report,
+        base_dir,
+    })
+}
+
+fn read_receipt_json(path: &Path) -> Result<RunReport> {
+    let data = fs::read_to_string(path)
+        .map_err(|error| anyhow!("failed to read {}: {error}", path.display()))?;
+    serde_json::from_str(&data).map_err(|error| {
+        anyhow!(
+            "failed to parse receipt JSON at {}: {error}",
+            path.display()
+        )
+    })
+}
+
+fn validate_report(report: &RunReport, base_dir: Option<&Path>) -> ValidationResult {
+    let mut result = ValidationResult::default();
+
+    if report.schema_version.trim().is_empty() {
+        result.errors.push("schema_version is empty".to_string());
+    }
+    if report.run.id.trim().is_empty() {
+        result.errors.push("run.id is empty".to_string());
+    }
+    if report.run.command_display.trim().is_empty() {
+        result
+            .errors
+            .push("run.command_display is empty".to_string());
+    }
+    if report.run.cwd.trim().is_empty() {
+        result.errors.push("run.cwd is empty".to_string());
+    }
+
+    let file_total =
+        report.summary.files_created + report.summary.files_modified + report.summary.files_deleted;
+    if report.summary.files_changed != file_total {
+        result.warnings.push(format!(
+            "summary.files_changed is {}, but created+modified+deleted is {}",
+            report.summary.files_changed, file_total
+        ));
+    }
+    if report.summary.files_changed != report.files.len() {
+        result.warnings.push(format!(
+            "summary.files_changed is {}, but the receipt lists {} file change(s)",
+            report.summary.files_changed,
+            report.files.len()
+        ));
+    }
+    if report.limitations.is_empty() {
+        result
+            .warnings
+            .push("receipt has no fidelity or snapshot limitation notes".to_string());
+    }
+
+    validate_output_artifact(
+        base_dir,
+        &mut result,
+        "stdout",
+        report.stdout.as_deref(),
+        report.stdout_path.as_deref(),
+    );
+    validate_output_artifact(
+        base_dir,
+        &mut result,
+        "stderr",
+        report.stderr.as_deref(),
+        report.stderr_path.as_deref(),
+    );
+    validate_revert_artifacts(report, base_dir, &mut result);
+    validate_ci_artifacts(report, base_dir, &mut result);
+
+    result
+}
+
+fn validate_output_artifact(
+    base_dir: Option<&Path>,
+    result: &mut ValidationResult,
+    label: &str,
+    inline: Option<&str>,
+    path: Option<&str>,
+) {
+    if inline.is_some() {
+        return;
+    }
+    let Some(path) = path else {
+        result
+            .warnings
+            .push(format!("{label} was not stored inline and has no path"));
+        return;
+    };
+    if !artifact_exists(base_dir, path) {
+        result
+            .warnings
+            .push(format!("{label} path is missing or not included: {path}"));
+    }
+}
+
+fn validate_revert_artifacts(
+    report: &RunReport,
+    base_dir: Option<&Path>,
+    result: &mut ValidationResult,
+) {
+    for file in &report.files {
+        match file.change_type {
+            FileChangeType::Modified | FileChangeType::Deleted => {
+                validate_file_artifact(
+                    base_dir,
+                    result,
+                    &file.path,
+                    "before-run snapshot",
+                    file.before_artifact_path.as_deref(),
+                );
+            }
+            FileChangeType::Created => {
+                validate_file_artifact(
+                    base_dir,
+                    result,
+                    &file.path,
+                    "after-run snapshot",
+                    file.after_artifact_path.as_deref(),
+                );
+            }
+        }
+    }
+}
+
+fn validate_file_artifact(
+    base_dir: Option<&Path>,
+    result: &mut ValidationResult,
+    file_path: &str,
+    label: &str,
+    artifact: Option<&str>,
+) {
+    let Some(artifact) = artifact else {
+        result.warnings.push(format!(
+            "{file_path} has no {label}; supported revert may be limited"
+        ));
+        return;
+    };
+    if !artifact_exists(base_dir, artifact) {
+        result.warnings.push(format!(
+            "{file_path} references missing {label}: {artifact}"
+        ));
+    }
+}
+
+fn validate_ci_artifacts(
+    report: &RunReport,
+    base_dir: Option<&Path>,
+    result: &mut ValidationResult,
+) {
+    let Some(base_dir) = base_dir else {
+        return;
+    };
+    let looks_like_ci_output = report.ci.is_some() || base_dir.join("artifacts").exists();
+    if !looks_like_ci_output {
+        return;
+    }
+
+    for relative in [
+        "receipt.json",
+        "summary.md",
+        "ai-summary.txt",
+        "reverse.patch",
+        "bundle.tar",
+        "artifacts/stdout.txt",
+        "artifacts/stderr.txt",
+        "artifacts/metadata.json",
+    ] {
+        if !base_dir.join(relative).exists() {
+            result
+                .warnings
+                .push(format!("CI artifact is missing: {relative}"));
+        }
+    }
+    for relative in ["artifacts/diffs", "artifacts/file-snapshots"] {
+        if !base_dir.join(relative).is_dir() {
+            result
+                .warnings
+                .push(format!("CI artifact directory is missing: {relative}"));
+        }
+    }
+}
+
+fn artifact_exists(base_dir: Option<&Path>, artifact: &str) -> bool {
+    let path = Path::new(artifact);
+    if path.exists() {
+        return true;
+    }
+    let Some(base_dir) = base_dir else {
+        return false;
+    };
+    if base_dir.join(path).exists() {
+        return true;
+    }
+    if let Some(rest) = artifact.strip_prefix("file-artifacts/") {
+        return base_dir
+            .join("artifacts/file-snapshots")
+            .join(rest)
+            .exists();
+    }
+    false
 }
 
 fn ensure_observation_supported() -> Result<()> {
@@ -1331,6 +1660,22 @@ fn command_on_path(command: &str) -> bool {
     std::env::var_os("PATH")
         .map(|paths| std::env::split_paths(&paths).any(|path| path.join(command).is_file()))
         .unwrap_or(false)
+}
+
+fn dir_writable(path: &Path) -> bool {
+    if fs::create_dir_all(path).is_err() {
+        return false;
+    }
+    let probe = path.join(format!(
+        ".runglass-write-probe-{}",
+        Utc::now()
+            .timestamp_nanos_opt()
+            .unwrap_or_else(|| Utc::now().timestamp_micros() * 1000)
+    ));
+    match fs::File::create(&probe) {
+        Ok(_) => fs::remove_file(&probe).is_ok(),
+        Err(_) => false,
+    }
 }
 
 fn human_size(bytes: u64) -> String {
@@ -1607,6 +1952,22 @@ mod tests {
                 ExportFormat::ReversePatch
             ]
         );
+    }
+
+    #[test]
+    fn validate_defaults_to_latest_and_accepts_paths() {
+        let cli = Cli::try_parse_from(["runglass", "validate"]).expect("parse validate default");
+        let Commands::Validate { receipt } = cli.command else {
+            panic!("expected validate command");
+        };
+        assert_eq!(receipt, "latest");
+
+        let cli = Cli::try_parse_from(["runglass", "validate", "runglass-receipt/receipt.json"])
+            .expect("parse validate path");
+        let Commands::Validate { receipt } = cli.command else {
+            panic!("expected validate command");
+        };
+        assert_eq!(receipt, "runglass-receipt/receipt.json");
     }
 
     #[test]
