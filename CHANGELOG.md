@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.3 - 05/12/2026
+
+- Added a guarded GitHub PR helper in the web UI for previewing and explicitly posting/updating a compact receipt comment from the current receipt.
+- Added web UI copy helpers for local GitHub dry runs, CI auto-comment commands, and a ready-to-use GitHub Actions workflow snippet.
+- Improved `runglass github detect` with PR URL, token readiness, and next-step diagnostics.
+- Made `runglass github comment --auto` print the detected GitHub context before posting.
+- Hardened GitHub docs around web UI behavior, token handling, and PR comment permissions.
+
 ## v0.2.2 - 05/11/2026
 
 - Added `runglass validate [latest|receipt-id|receipt.json|receipt-dir]` to check receipt JSON, CI artifact layout, and revert snapshot availability.

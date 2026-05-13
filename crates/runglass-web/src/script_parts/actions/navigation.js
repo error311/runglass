@@ -3,7 +3,7 @@ function bindActions() {
   state.bindingsReady = true;
 
   document.getElementById('app').addEventListener('click', async (event) => {
-    const target = event.target.closest('[data-nav-target], [data-copy], [data-file-path], [data-revert-toggle], [data-revert-conflict], [data-process-pid], [data-network-host], [data-network-port], [data-risk-id], [data-timeline-key], [data-help-kind], [data-help-close], [data-revert-close], [data-revert-apply], [data-revert-scope], [data-clear-network-focus], [data-stop-run], [data-tab-group], [data-diff-mode], [data-file-tab], [data-network-tab], [data-run-id], [data-delete-run], [data-load-more-runs], [data-toggle-quick-actions], [data-summary-action], [data-dismiss-run-output]');
+    const target = event.target.closest('[data-nav-target], [data-copy], [data-file-path], [data-revert-toggle], [data-revert-conflict], [data-process-pid], [data-network-host], [data-network-port], [data-risk-id], [data-timeline-key], [data-help-kind], [data-help-close], [data-revert-close], [data-revert-apply], [data-revert-scope], [data-clear-network-focus], [data-stop-run], [data-tab-group], [data-diff-mode], [data-file-tab], [data-network-tab], [data-run-id], [data-delete-run], [data-load-more-runs], [data-toggle-quick-actions], [data-summary-action], [data-dismiss-run-output], [data-github-action]');
     if (!target) return;
 
     if (target.dataset.helpClose) {
@@ -76,6 +76,13 @@ function bindActions() {
     if (target.dataset.copy) {
       event.preventDefault();
       await handleCopy(target);
+      return;
+    }
+
+    if (target.dataset.githubAction) {
+      event.preventDefault();
+      await handleGithubAction(target.dataset.githubAction);
+      return;
     }
 
     if (target.dataset.runId) {
@@ -221,6 +228,18 @@ function bindActions() {
       state.receiptSearch = target.value;
       state.recentRunsVisible = 5;
       renderRecentRuns({ preserveSearchFocus: true });
+      return;
+    }
+    if (target instanceof HTMLInputElement && target.dataset.githubRepo !== undefined) {
+      state.githubRepo = target.value;
+      state.githubPreview = null;
+      state.githubMessage = null;
+      return;
+    }
+    if (target instanceof HTMLInputElement && target.dataset.githubPr !== undefined) {
+      state.githubPr = target.value;
+      state.githubPreview = null;
+      state.githubMessage = null;
     }
   });
 

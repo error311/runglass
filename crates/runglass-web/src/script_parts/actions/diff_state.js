@@ -95,6 +95,12 @@ function resetViewState() {
   state.revertBusy = false;
   state.revertMessage = null;
   state.revertStatus = null;
+  state.githubRepo = '';
+  state.githubPr = '';
+  state.githubPreview = null;
+  state.githubBusy = false;
+  state.githubMessage = null;
+  state.githubStatus = null;
 }
 
 function syncRunDraft() {

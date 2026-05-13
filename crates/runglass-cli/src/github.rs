@@ -33,6 +33,7 @@ struct RepoParts {
 
 pub(crate) fn detect_command(repo: Option<String>, pr: Option<u64>) -> Result<()> {
     let context = detect_context(repo, pr)?;
+    let token = token_source();
     println!("GitHub context");
     print_detected("Repository", context.repo.as_deref());
     print_detected(
@@ -41,7 +42,24 @@ pub(crate) fn detect_command(repo: Option<String>, pr: Option<u64>) -> Result<()
     );
     print_detected("Commit SHA", context.sha.as_deref());
     print_detected("Run URL", context.run_url.as_deref());
-    print_detected("Token", token_source().as_deref());
+    print_detected("Token", token.as_deref());
+    if let Some(url) = pr_url(context.repo.as_deref(), context.pr) {
+        print_detected("PR URL", Some(url.as_str()));
+    }
+    let ready = context.repo.is_some() && context.pr.is_some() && token.is_some();
+    println!(
+        "Comment readiness\t{}",
+        if ready {
+            "ready to post or update a PR comment"
+        } else {
+            "needs repository, pull request, and token"
+        }
+    );
+    if !ready {
+        println!(
+            "Next\tpass --repo owner/name and --pr <number>, and set GITHUB_TOKEN/GH_TOKEN or run gh auth login"
+        );
+    }
     Ok(())
 }
 
@@ -70,6 +88,19 @@ pub(crate) fn comment_command(report: &RunReport, options: GithubCommentOptions)
 
     let token = resolve_token()?;
     let client = GithubApiClient::new(options.api_url.as_deref().unwrap_or(DEFAULT_API_URL), token);
+    if options.auto {
+        println!(
+            "Detected GitHub context: {}/{}#{}{}",
+            repo.owner,
+            repo.repo,
+            pr,
+            context
+                .run_url
+                .as_deref()
+                .map(|url| format!(" ({url})"))
+                .unwrap_or_default()
+        );
+    }
     match client.find_marker_comment(&repo, pr)? {
         Some(comment_id) => {
             client.update_comment(&repo, comment_id, &body)?;
@@ -88,6 +119,10 @@ pub(crate) fn comment_command(report: &RunReport, options: GithubCommentOptions)
     }
 
     Ok(())
+}
+
+fn pr_url(repo: Option<&str>, pr: Option<u64>) -> Option<String> {
+    Some(format!("https://github.com/{}/pull/{}", repo?, pr?))
 }
 
 fn detect_context(repo: Option<String>, pr: Option<u64>) -> Result<GithubContext> {

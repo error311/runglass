@@ -237,6 +237,167 @@
   padding: 18px 20px 20px;
 }
 
+.github-panel {
+  margin: 18px 0;
+}
+
+.github-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.github-body {
+  padding: 0 18px 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.github-form-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(120px, 180px) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.github-field {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.github-field input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(103, 128, 176, 0.22);
+  border-radius: 8px;
+  background: rgba(7, 13, 23, 0.76);
+  color: #e7efff;
+  padding: 10px 11px;
+  font: inherit;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.github-field input:focus {
+  outline: 0;
+  border-color: rgba(121, 153, 214, 0.56);
+  box-shadow: 0 0 0 3px rgba(121, 153, 214, 0.1);
+}
+
+.github-button-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.github-context-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.github-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.github-message {
+  border: 1px solid rgba(103, 128, 176, 0.18);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #dce8ff;
+  background: rgba(14, 24, 40, 0.74);
+}
+
+.github-message.success {
+  border-color: rgba(79, 190, 139, 0.32);
+  color: #b9f7d8;
+}
+
+.github-message.error {
+  border-color: rgba(248, 113, 113, 0.34);
+  color: #ffc0c0;
+}
+
+.github-preview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr);
+  gap: 14px;
+}
+
+.github-preview,
+.github-snippets {
+  min-width: 0;
+  border: 1px solid rgba(103, 128, 176, 0.16);
+  border-radius: 8px;
+  background: rgba(8, 15, 26, 0.66);
+  padding: 12px;
+}
+
+.github-preview-title {
+  color: #e7efff;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.github-preview pre {
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #dce8ff;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.github-snippets {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.snippet-btn {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  border: 1px solid rgba(103, 128, 176, 0.16);
+  border-radius: 8px;
+  background: rgba(14, 24, 40, 0.7);
+  color: #dce8ff;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.snippet-btn:hover {
+  border-color: rgba(121, 153, 214, 0.36);
+  background: rgba(18, 30, 49, 0.86);
+}
+
+.snippet-btn span {
+  display: block;
+  color: #9fc0ff;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 5px;
+}
+
+.snippet-btn code {
+  display: block;
+  color: #e7efff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .dialog-actions {
   display: flex;
   flex-wrap: wrap;

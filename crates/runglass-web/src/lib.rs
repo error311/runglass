@@ -4,6 +4,7 @@ use std::path::Path;
 use anyhow::Result;
 use runglass_core::RunReport;
 
+mod github;
 mod http;
 mod jobs;
 mod script;

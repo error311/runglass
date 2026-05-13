@@ -32,6 +32,12 @@ const state = {
   receiptSearch: '',
   recentRunsVisible: 5,
   quickActionsOpen: false,
+  githubRepo: '',
+  githubPr: '',
+  githubPreview: null,
+  githubBusy: false,
+  githubMessage: null,
+  githubStatus: null,
 };
 
 const icons = {

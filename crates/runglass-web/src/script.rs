@@ -9,6 +9,8 @@ pub(crate) const SCRIPT: &str = concat!(
     "\n",
     include_str!("render_parts/receipt_chrome.js"),
     "\n",
+    include_str!("render_parts/github_panel.js"),
+    "\n",
     include_str!("render_parts/activity_state.js"),
     "\n",
     include_str!("render_parts/revert_helpers.js"),

@@ -229,6 +229,8 @@ runglass github comment --receipt runglass-receipt/receipt.json --auto
 
 Authentication is read from `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token`. RunGlass does not accept GitHub tokens as CLI arguments, so tokens do not need to appear in shell history or process listings. Tokens are not written into receipt artifacts. The GitHub token needs permission to write issue or pull request comments.
 
+The local web UI also includes a guarded GitHub PR receipt helper for saved receipts. It can preview the exact PR comment, copy local/CI commands, copy a GitHub Actions workflow snippet, and post or update the PR comment after explicit confirmation. Tokens are still resolved server-side only; the browser never asks for or stores a GitHub token.
+
 See [GitHub integration docs](docs/github-integration.md) for workflow examples, API behavior, and token permissions.
 
 ## CI Receipts

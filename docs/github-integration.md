@@ -34,6 +34,20 @@ RunGlass uses a hidden marker to update an existing RunGlass comment instead of 
 <!-- runglass-receipt-comment:v1 -->
 ```
 
+## Web UI Helper
+
+The local receipt UI includes a GitHub PR helper for the currently open receipt. It can:
+
+- preview the compact PR comment before any network write
+- copy a local dry-run command
+- copy the CI `--auto` comment command
+- copy a ready-to-use GitHub Actions workflow snippet
+- post or update the PR comment after explicit confirmation
+
+The web UI does not run arbitrary CI jobs locally. `runglass ci` remains a CLI/runner workflow. The UI acts on an existing receipt and provides copyable commands for CI setup.
+
+The browser never accepts or stores a GitHub token. Posting uses the same server-side token discovery as the CLI: `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token`.
+
 ## Authentication
 
 RunGlass looks for a token in this order:

@@ -31,6 +31,7 @@ function buildApp() {
         ${renderWorkspaceBanner()}
         ${renderOnboardingPanel()}
         <section class="grid summary-grid section-anchor" id="summary-grid"></section>
+        ${renderGithubPanel()}
         <section class="grid content-grid">
           <div class="content-main-grid">
             <div class="content-column content-column-left">

@@ -699,7 +699,7 @@ dependencies = [
 
 [[package]]
 name = "runglass"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -712,7 +712,7 @@ dependencies = [
 
 [[package]]
 name = "runglass-core"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -723,13 +723,14 @@ dependencies = [
 
 [[package]]
 name = "runglass-web"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "chrono",
  "runglass-core",
  "serde_json",
  "tiny_http",
+ "ureq",
  "webbrowser",
 ]
 

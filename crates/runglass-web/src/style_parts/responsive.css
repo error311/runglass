@@ -21,6 +21,7 @@
   .receipt-meta-band { grid-template-columns: 1fr; }
   .actions { justify-content: flex-start; }
   .insight-rail { grid-template-columns: 1fr; }
+  .github-form-row, .github-preview-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 980px) {
@@ -35,4 +36,6 @@
   .summary-grid, .content-grid, .content-main-grid { grid-template-columns: 1fr; }
   .run-form { grid-template-columns: 1fr; }
   .onboarding-cards { grid-template-columns: 1fr; }
+  .github-actions-row, .github-button-row { width: 100%; }
+  .github-actions-row .action-btn, .github-button-row .action-btn { flex: 1 1 160px; }
 }

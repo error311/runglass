@@ -11,6 +11,7 @@ use runglass_core::{
 use serde_json::json;
 use tiny_http::{Method, Response, Server, StatusCode};
 
+use crate::github::{github_comment_response, github_preview_response, read_github_request};
 use crate::http::{binary_response, html_response, json_status_response};
 use crate::jobs::{
     cancel_run_job, job_exists, read_revert_request, read_run_request, revert_apply_response,
@@ -106,6 +107,20 @@ pub fn serve_report_on_port(report: RunReport, open_browser: bool, port: u16) ->
             },
             (&Method::Post, "/api/revert/apply") => match read_revert_request(&mut request) {
                 Ok(payload) => revert_apply_response(&payload),
+                Err(error) => json_status_response(
+                    StatusCode(400),
+                    &json!({ "error": error.to_string() }).to_string(),
+                ),
+            },
+            (&Method::Post, "/api/github/preview") => match read_github_request(&mut request) {
+                Ok(payload) => github_preview_response(&payload),
+                Err(error) => json_status_response(
+                    StatusCode(400),
+                    &json!({ "error": error.to_string() }).to_string(),
+                ),
+            },
+            (&Method::Post, "/api/github/comment") => match read_github_request(&mut request) {
+                Ok(payload) => github_comment_response(&payload),
                 Err(error) => json_status_response(
                     StatusCode(400),
                     &json!({ "error": error.to_string() }).to_string(),
