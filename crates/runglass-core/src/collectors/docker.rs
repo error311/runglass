@@ -1,12 +1,15 @@
 use std::collections::HashMap;
+#[cfg(target_os = "linux")]
 use std::process::Command;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::Result;
+#[cfg(target_os = "linux")]
+use anyhow::{anyhow, Context};
 
-use crate::{
-    DockerContainerChange, DockerImageChange, DockerNetworkChange, DockerPortChange,
-    DockerSnapshot, DockerSummary, DockerVolumeChange,
-};
+use crate::{DockerContainerChange, DockerPortChange, DockerSnapshot, DockerSummary};
+#[cfg(target_os = "linux")]
+use crate::{DockerImageChange, DockerNetworkChange, DockerVolumeChange};
+#[cfg(target_os = "linux")]
 fn docker_lines(subcommand: &str, args: &[&str]) -> Result<Vec<String>> {
     let output = Command::new("docker")
         .arg(subcommand)
@@ -27,6 +30,7 @@ fn docker_lines(subcommand: &str, args: &[&str]) -> Result<Vec<String>> {
         .collect())
 }
 
+#[cfg(target_os = "linux")]
 fn parse_docker_container(line: &str) -> Option<DockerContainerChange> {
     let value: serde_json::Value = serde_json::from_str(line).ok()?;
     let name = value
@@ -63,6 +67,7 @@ fn parse_docker_container(line: &str) -> Option<DockerContainerChange> {
     })
 }
 
+#[cfg(target_os = "linux")]
 fn inspect_docker_container(name: &str) -> Option<DockerContainerChange> {
     let output = Command::new("docker")
         .arg("inspect")
@@ -147,6 +152,7 @@ fn inspect_docker_container(name: &str) -> Option<DockerContainerChange> {
     })
 }
 
+#[cfg(target_os = "linux")]
 fn parse_docker_image(line: &str) -> Option<DockerImageChange> {
     let value: serde_json::Value = serde_json::from_str(line).ok()?;
     let repository = value
@@ -169,6 +175,7 @@ fn parse_docker_image(line: &str) -> Option<DockerImageChange> {
     })
 }
 
+#[cfg(target_os = "linux")]
 fn parse_docker_volume(line: &str) -> Option<DockerVolumeChange> {
     let value: serde_json::Value = serde_json::from_str(line).ok()?;
     let name = value
@@ -185,6 +192,7 @@ fn parse_docker_volume(line: &str) -> Option<DockerVolumeChange> {
     })
 }
 
+#[cfg(target_os = "linux")]
 fn parse_docker_network(line: &str) -> Option<DockerNetworkChange> {
     let value: serde_json::Value = serde_json::from_str(line).ok()?;
     let name = value
@@ -205,6 +213,7 @@ fn parse_docker_network(line: &str) -> Option<DockerNetworkChange> {
     })
 }
 
+#[cfg(target_os = "linux")]
 fn split_csv_field(value: &str) -> Vec<String> {
     value
         .split(',')
@@ -275,6 +284,16 @@ pub fn capture_docker_snapshot() -> Result<DockerSnapshot> {
         images,
         volumes,
         networks,
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn capture_docker_snapshot() -> Result<DockerSnapshot> {
+    Ok(DockerSnapshot {
+        containers: HashMap::new(),
+        images: HashMap::new(),
+        volumes: HashMap::new(),
+        networks: HashMap::new(),
     })
 }
 

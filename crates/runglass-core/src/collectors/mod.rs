@@ -16,7 +16,9 @@ pub(crate) use deep::{
     wrap_command_for_mode,
 };
 pub(crate) use files::{hash_bytes, simple_unified_diff};
+#[cfg(target_os = "linux")]
+pub(crate) use processes::read_proc_processes;
 pub(crate) use processes::{
-    count_child_process_samples, merge_processes_with_network_samples, read_proc_processes,
+    count_child_process_samples, merge_processes_with_network_samples,
     read_process_tree_sample_with_known, summarize_process_samples,
 };

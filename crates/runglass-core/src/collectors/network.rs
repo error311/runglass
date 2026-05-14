@@ -1,11 +1,18 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+#[cfg(target_os = "linux")]
+use std::collections::HashSet;
+#[cfg(target_os = "linux")]
 use std::fs;
+#[cfg(target_os = "linux")]
 use std::net::{Ipv4Addr, Ipv6Addr};
+#[cfg(target_os = "linux")]
 use std::path::PathBuf;
+#[cfg(target_os = "linux")]
 use std::process::Command;
 
 use chrono::{DateTime, Utc};
 
+#[cfg(target_os = "linux")]
 use crate::collectors::processes::{read_proc_processes, ProcProcess};
 use crate::{NetworkDirection, NetworkEvent, NetworkSample, ProcessSample};
 pub fn read_network_samples(

@@ -10,10 +10,12 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 
+#[cfg(target_os = "linux")]
+use crate::collectors::read_proc_processes;
 use crate::collectors::{
     capture_docker_snapshot, count_child_process_samples, diff_docker_snapshots, diff_snapshots,
     merge_deep_process_samples, merge_processes_with_network_samples, parse_deep_trace_capture,
-    prepare_deep_trace_prefix, read_network_samples, read_network_samples_ss, read_proc_processes,
+    prepare_deep_trace_prefix, read_network_samples, read_network_samples_ss,
     read_process_tree_sample_with_known, snapshot_directory_with_stats, snapshot_file_byte_limit,
     summarize_network_samples, summarize_process_samples, wrap_command_for_mode,
 };
