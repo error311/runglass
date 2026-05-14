@@ -39,3 +39,44 @@ jobs:
 
       - name: Check runglass package file list
         run: cargo package -p runglass --locked --list
+
+  macos:
+    name: macOS readiness
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build workspace
+        run: cargo build --workspace --locked
+
+      - name: Test cross-platform CLI surface
+        run: cargo test -p runglass --bin runglass --locked
+
+      - name: Build release binary
+        run: cargo build --release --locked -p runglass
+
+      - name: Smoke test non-observation commands
+        run: |
+          target/release/runglass --version
+          target/release/runglass --help
+          target/release/runglass doctor
+          target/release/runglass demo
+          target/release/runglass validate latest
+
+      - name: Verify observation guard
+        run: |
+          set +e
+          output="$(target/release/runglass run -- echo hello 2>&1)"
+          status=$?
+          set -e
+          echo "$output"
+          if [ "$status" -eq 0 ]; then
+            echo "::error::runglass run unexpectedly succeeded on macOS"
+            exit 1
+          fi
+          echo "$output" | grep "Linux-first"

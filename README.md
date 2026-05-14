@@ -60,7 +60,7 @@ More examples:
 
 ## Install
 
-RunGlass is Linux-first in this release. `normal` mode uses Linux process and socket sources, and `deep` mode uses `strace` when available. macOS and Windows command observation is not supported yet.
+RunGlass is Linux-first for live command observation. `normal` mode uses Linux process and socket sources, and `deep` mode uses `strace` when available. macOS can build the CLI and inspect/export/validate existing receipts, but `runglass run` and `runglass ci` are not supported there yet.
 
 Install from crates.io:
 
@@ -68,12 +68,16 @@ Install from crates.io:
 cargo install runglass --locked
 ```
 
-Prebuilt Linux x86_64 release archives are published from tagged GitHub releases and include SHA-256 checksum files:
+Prebuilt release archives are published from tagged GitHub releases and include SHA-256 checksum files:
 
 ```text
 runglass-<version>-x86_64-unknown-linux-gnu.tar.gz
 runglass-<version>-x86_64-unknown-linux-gnu.tar.gz.sha256
+runglass-<version>-<macos-host>-apple-darwin.tar.gz
+runglass-<version>-<macos-host>-apple-darwin.tar.gz.sha256
 ```
+
+The macOS archive is for receipt inspection workflows only in this release; live command observation still exits with a clear Linux-first message.
 
 For local development, install this checkout into your Cargo bin directory:
 
@@ -95,12 +99,14 @@ cargo build
 
 ### Platform Support
 
-| Platform | Status | Notes |
-| --- | --- | --- |
-| Linux x86_64 | Supported | Primary target. `normal` mode uses `/proc` and socket sampling; `deep` mode can use `strace`. |
-| Linux other architectures | Expected to build | Not yet covered by release binaries. Build from crates.io/source. |
-| macOS | Not supported for observation | The CLI may build, but command observation is Linux-first and currently exits clearly on unsupported platforms. |
-| Windows | Not supported | Command observation is not implemented for Windows yet. |
+| Platform | Install/build | Inspect/export/validate | Live command observation |
+| --- | --- | --- | --- |
+| Linux x86_64 | Supported, release archive available | Supported | Supported. `normal` uses `/proc` and socket sampling; `deep` can use `strace`. |
+| Linux other architectures | Expected to build from crates.io/source | Supported | Expected when Linux collector tools are available. |
+| macOS | Experimental build and release archive | Supported for existing receipts | Not supported yet; `runglass run` and `runglass ci` exit clearly. |
+| Windows | Not supported | Not supported | Not supported. |
+
+See [Platform Support](https://github.com/error311/runglass/blob/main/docs/platform-support.md) for the current support boundary.
 
 ## Quick Start
 

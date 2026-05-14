@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.4 - 05/13/2026
+
+- Added macOS readiness CI that builds the workspace, tests the cross-platform CLI surface, smokes receipt inspection commands, and verifies live observation exits with the Linux-first guard.
+- Added macOS release artifact packaging alongside Linux x86_64 release archives.
+- Improved `runglass doctor` and unsupported-platform messaging to clarify that receipt inspect/export/validate workflows can still work when live observation is unavailable.
+- Updated the README platform matrix and added detailed platform support documentation.
+
 ## v0.2.3 - 05/12/2026
 
 - Added a guarded GitHub PR helper in the web UI for previewing and explicitly posting/updating a compact receipt comment from the current receipt.

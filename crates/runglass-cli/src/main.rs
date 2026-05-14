@@ -19,7 +19,7 @@ use runglass_web::{serve_report, serve_report_on_port, write_standalone_html};
 
 mod github;
 
-const UNSUPPORTED_PLATFORM_MESSAGE: &str = "RunGlass command observation is Linux-first in this release.\nThis platform is not supported yet.";
+const UNSUPPORTED_PLATFORM_MESSAGE: &str = "RunGlass live command observation is Linux-first in this release.\nThis platform can inspect, export, and validate existing receipts, but `runglass run` and `runglass ci` are not supported yet.";
 
 #[derive(Debug, Parser)]
 #[command(
@@ -1069,6 +1069,16 @@ fn doctor() -> Result<()> {
     let platform_supported = observation_supported();
     print_check("Platform", std::env::consts::OS, platform_supported);
     print_check("Architecture", std::env::consts::ARCH, true);
+    print_check(
+        "Live observation",
+        if platform_supported {
+            "available"
+        } else {
+            "Linux-only in this release"
+        },
+        platform_supported,
+    );
+    print_check("Inspect/export/validate", "available", true);
     if !platform_supported {
         println!();
         println!("{}", unsupported_platform_message());
@@ -1110,11 +1120,25 @@ fn doctor() -> Result<()> {
             command_on_path("strace"),
         );
     }
-    print_check("docker", "Docker diff support", command_on_path("docker"));
-    println!();
-    println!(
-        "Tip: run `runglass snapshot --dry-run` inside a project to preview file capture scope."
+    print_check(
+        "docker",
+        if platform_supported {
+            "Docker diff support"
+        } else {
+            "detected for future live observation support"
+        },
+        command_on_path("docker"),
     );
+    println!();
+    if platform_supported {
+        println!(
+            "Tip: run `runglass snapshot --dry-run` inside a project to preview file capture scope."
+        );
+    } else {
+        println!(
+            "Tip: this platform can inspect, export, and validate existing receipts; live `run` and `ci` remain Linux-first."
+        );
+    }
     Ok(())
 }
 
@@ -2023,6 +2047,7 @@ mod tests {
     fn unsupported_platform_message_is_clear() {
         let message = unsupported_platform_message();
         assert!(message.contains("Linux-first"));
+        assert!(message.contains("inspect, export, and validate"));
         assert!(message.contains("not supported yet"));
     }
 
