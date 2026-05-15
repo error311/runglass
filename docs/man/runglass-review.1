@@ -1,0 +1,34 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH runglass-review 1 2026-05-15 "runglass 0.3.0" "RunGlass Manual"
+.SH NAME
+runglass\-review \- Review a saved receipt and choose keep/revert/export/open actions
+.SH SYNOPSIS
+\fBrunglass review\fR [\fB\-\-non\-interactive\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIRECEIPT\fR] 
+.SH DESCRIPTION
+Review a saved receipt and choose keep/revert/export/open actions
+.SH OPTIONS
+.TP
+\fB\-\-non\-interactive\fR \fI<NON_INTERACTIVE>\fR [default: fail]
+Review behavior when stdin/stdout is not interactive
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+fail
+.IP \(bu 2
+summary
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+[\fIRECEIPT\fR] [default: latest]
+
+.SH EXTRA
+Examples:
+  runglass review latest
+  runglass review latest \-\-non\-interactive summary
+  runglass review <receipt\-id>

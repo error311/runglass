@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::Write;
+use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
@@ -36,13 +36,25 @@ struct Cli {
 enum Commands {
     #[command(
         about = "Run one command and create a receipt",
-        after_help = "RunGlass wraps one command and creates a receipt.\n\nExamples:\n  runglass run -- docker compose up -d\n  runglass run docker compose up -d\n  runglass run --deep -- ./install.sh"
+        after_help = "RunGlass wraps one command and creates a receipt.\n\nExamples:\n  runglass run -- docker compose up -d\n  runglass run docker compose up -d\n  runglass run --deep -- ./install.sh\n  runglass run --review -- ./install.sh"
     )]
     Run {
         #[arg(long)]
         open: bool,
         #[arg(long)]
         deep: bool,
+        #[arg(
+            long,
+            help = "After the command exits, guide keep/revert/export/open actions"
+        )]
+        review: bool,
+        #[arg(
+            long = "non-interactive",
+            value_enum,
+            default_value_t = ReviewNonInteractive::Fail,
+            help = "Review-mode behavior when stdin/stdout is not interactive"
+        )]
+        non_interactive: ReviewNonInteractive,
         #[arg(required = true, num_args = 1.., allow_hyphen_values = true, trailing_var_arg = true)]
         command: Vec<String>,
     },
@@ -56,6 +68,21 @@ enum Commands {
             help = "Port to bind, or 0 for any free port"
         )]
         port: u16,
+    },
+    #[command(
+        about = "Review a saved receipt and choose keep/revert/export/open actions",
+        after_help = "Examples:\n  runglass review latest\n  runglass review latest --non-interactive summary\n  runglass review <receipt-id>"
+    )]
+    Review {
+        #[arg(default_value = "latest")]
+        receipt: String,
+        #[arg(
+            long = "non-interactive",
+            value_enum,
+            default_value_t = ReviewNonInteractive::Fail,
+            help = "Review behavior when stdin/stdout is not interactive"
+        )]
+        non_interactive: ReviewNonInteractive,
     },
     #[command(about = "Run one command in CI and write receipt artifacts")]
     Ci {
@@ -226,6 +253,20 @@ enum ExportFormat {
     Ai,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum ReviewNonInteractive {
+    Fail,
+    Summary,
+}
+
+enum ReviewAction {
+    Keep,
+    PreviewRevert,
+    RevertSupported,
+    Export,
+    Open,
+}
+
 struct CiArtifact {
     label: &'static str,
     path: PathBuf,
@@ -247,9 +288,15 @@ fn main() -> Result<()> {
         Commands::Run {
             open,
             deep,
+            review,
+            non_interactive,
             command,
-        } => run_command(command, open, deep),
+        } => run_command(command, open, deep, review, non_interactive),
         Commands::Open { run_id, port } => open_receipt(&run_id, port),
+        Commands::Review {
+            receipt,
+            non_interactive,
+        } => review_receipt_command(&receipt, non_interactive),
         Commands::Ci {
             deep,
             provider,
@@ -364,8 +411,25 @@ fn github_comment_command(args: GithubCommentArgs) -> Result<()> {
     github::comment_command(&report, options)
 }
 
-fn run_command(command: Vec<String>, open: bool, deep: bool) -> Result<()> {
+fn run_command(
+    command: Vec<String>,
+    open: bool,
+    deep: bool,
+    review: bool,
+    non_interactive: ReviewNonInteractive,
+) -> Result<()> {
     ensure_observation_supported()?;
+    if !review {
+        if matches!(non_interactive, ReviewNonInteractive::Summary) {
+            return Err(anyhow!("--non-interactive is only valid with --review"));
+        }
+        return run_plain_command(command, open, deep);
+    }
+
+    run_review_command(command, open, deep, non_interactive)
+}
+
+fn run_plain_command(command: Vec<String>, open: bool, deep: bool) -> Result<()> {
     let mode = if deep {
         ObservationMode::Deep
     } else {
@@ -381,6 +445,245 @@ fn run_command(command: Vec<String>, open: bool, deep: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn run_review_command(
+    command: Vec<String>,
+    open: bool,
+    deep: bool,
+    non_interactive: ReviewNonInteractive,
+) -> Result<()> {
+    let interactive = review_stdio_is_interactive();
+    if !interactive && matches!(non_interactive, ReviewNonInteractive::Fail) {
+        return Err(anyhow!(
+            "review mode requires an interactive stdin/stdout; use `--non-interactive summary` to run and print a review summary without prompts"
+        ));
+    }
+
+    let mode = if deep {
+        ObservationMode::Deep
+    } else {
+        ObservationMode::Normal
+    };
+    let (report, paths) = run_observed_command_in_mode(command, mode)?;
+
+    println!("Created receipt {}", report.run.id);
+    println!("{}", paths.report_path.display());
+    println!();
+    print_review_summary(&report)?;
+
+    if open {
+        serve_report(report.clone(), true)?;
+    }
+
+    if !interactive {
+        return finish_review(&report, true);
+    }
+
+    review_loop(report, true)
+}
+
+fn review_stdio_is_interactive() -> bool {
+    io::stdin().is_terminal() && io::stdout().is_terminal()
+}
+
+fn review_receipt_command(selector: &str, non_interactive: ReviewNonInteractive) -> Result<()> {
+    let interactive = review_stdio_is_interactive();
+    if !interactive && matches!(non_interactive, ReviewNonInteractive::Fail) {
+        return Err(anyhow!(
+            "review requires an interactive stdin/stdout; use `--non-interactive summary` to print a saved receipt review summary without prompts"
+        ));
+    }
+
+    let report = resolve_receipt(selector)?;
+    print_review_summary(&report)?;
+
+    if !interactive {
+        return Ok(());
+    }
+
+    review_loop(report, false)
+}
+
+fn review_loop(report: RunReport, preserve_command_status: bool) -> Result<()> {
+    loop {
+        match prompt_review_action()? {
+            ReviewAction::Keep => return finish_review(&report, preserve_command_status),
+            ReviewAction::PreviewRevert => {
+                let preview = preview_revert(&report, None)?;
+                print_revert_preview(&preview);
+            }
+            ReviewAction::RevertSupported => {
+                let preview = preview_revert(&report, None)?;
+                print_revert_preview(&preview);
+                if !confirm_review_revert()? {
+                    println!("Revert cancelled.");
+                    continue;
+                }
+                let result = apply_revert(
+                    &report,
+                    None,
+                    RevertOptions {
+                        policy: RevertConflictPolicy::Abort,
+                    },
+                )?;
+                println!("Applied supported file revert.");
+                print_revert_preview(&result);
+                return finish_review(&report, preserve_command_status);
+            }
+            ReviewAction::Export => {
+                println!("Exporting receipt artifacts:");
+                export_report(
+                    &report.run.id,
+                    ExportSelection {
+                        html: true,
+                        json: true,
+                        markdown: true,
+                        reverse_patch: true,
+                        bundle: true,
+                        formats: vec![ExportFormat::SummaryMd, ExportFormat::Ai],
+                    },
+                )?;
+            }
+            ReviewAction::Open => {
+                serve_report(report.clone(), true)?;
+                return finish_review(&report, preserve_command_status);
+            }
+        }
+        println!();
+    }
+}
+
+fn prompt_review_action() -> Result<ReviewAction> {
+    loop {
+        println!();
+        println!("Review actions:");
+        println!("  k  keep changes and finish");
+        println!("  p  preview supported file revert");
+        println!("  r  revert supported file changes");
+        println!("  e  export receipt artifacts");
+        println!("  o  open receipt UI");
+        print!("Choose action [k/p/r/e/o]: ");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        match input.trim().to_ascii_lowercase().as_str() {
+            "" | "k" | "keep" => return Ok(ReviewAction::Keep),
+            "p" | "preview" => return Ok(ReviewAction::PreviewRevert),
+            "r" | "revert" => return Ok(ReviewAction::RevertSupported),
+            "e" | "export" => return Ok(ReviewAction::Export),
+            "o" | "open" => return Ok(ReviewAction::Open),
+            _ => println!("Unknown review action."),
+        }
+    }
+}
+
+fn confirm_review_revert() -> Result<bool> {
+    print!("Type `revert` to apply supported file changes: ");
+    io::stdout().flush()?;
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    Ok(input.trim() == "revert")
+}
+
+fn finish_review(report: &RunReport, preserve_command_status: bool) -> Result<()> {
+    if preserve_command_status {
+        if let Some(code) = report.run.exit_code {
+            if code != 0 {
+                process::exit(normalize_exit_code(code));
+            }
+        } else if !matches!(report.run.status, RunStatus::Completed) {
+            process::exit(1);
+        }
+    }
+    Ok(())
+}
+
+fn print_review_summary(report: &RunReport) -> Result<()> {
+    println!("RunGlass Review");
+    println!("Receipt: {}", report.run.id);
+    println!("Command: {}", report.run.command_display);
+    println!(
+        "Status: {}, exit {}",
+        status_label(&report.run.status),
+        report
+            .run
+            .exit_code
+            .map(|code| code.to_string())
+            .unwrap_or_else(|| "n/a".to_string())
+    );
+    println!("Risk: {}", risk_level_label(&report.summary.risk_level));
+    println!();
+    println!("Impact");
+    println!(
+        "- Files: {} created, {} modified, {} deleted",
+        report.summary.files_created, report.summary.files_modified, report.summary.files_deleted
+    );
+    println!(
+        "- Runtime: {} processes, {} outbound hosts, {} listening ports",
+        report.summary.processes_seen, report.summary.network_hosts, report.summary.ports_opened
+    );
+    println!(
+        "- Docker: {} containers, {} images, {} volumes",
+        report.summary.docker_containers_created,
+        report.summary.docker_images_pulled,
+        report.summary.docker_volumes_created
+    );
+
+    if !report.files.is_empty() {
+        println!();
+        println!("Changed files");
+        for file in report.files.iter().take(12) {
+            println!(
+                "- {} {}",
+                file_change_type_label(&file.change_type),
+                file.path
+            );
+        }
+        if report.files.len() > 12 {
+            println!("- ... {} more", report.files.len() - 12);
+        }
+    }
+
+    if !report.risks.is_empty() {
+        println!();
+        println!("Risk notes");
+        for risk in report.risks.iter().take(5) {
+            println!("- {}: {}", risk.title, risk.detail);
+        }
+        if report.risks.len() > 5 {
+            println!("- ... {} more", report.risks.len() - 5);
+        }
+    }
+
+    let preview = preview_revert(report, None)?;
+    println!();
+    println!("Supported file revert");
+    println!(
+        "- Targets: {} safe, {} changed since receipt, {} missing snapshots, {} already reverted",
+        preview.safe.len(),
+        preview.conflicts.len(),
+        preview.missing_artifacts.len(),
+        preview.already_reverted.len()
+    );
+    println!(
+        "- Plan: restore {} modified, delete {} created, restore {} deleted",
+        preview.restore_modified, preview.delete_created, preview.restore_deleted
+    );
+    println!(
+        "- Non-file side effects such as Docker changes, network calls, databases, package-manager globals, and external services are not undone."
+    );
+
+    Ok(())
+}
+
+fn file_change_type_label(change_type: &FileChangeType) -> &'static str {
+    match change_type {
+        FileChangeType::Created => "created",
+        FileChangeType::Modified => "modified",
+        FileChangeType::Deleted => "deleted",
+    }
 }
 
 fn open_receipt(run_id: &str, port: u16) -> Result<()> {
@@ -1818,9 +2121,125 @@ fn resolve_receipt_input(selector: &str) -> Result<RunReport> {
 mod tests {
     use super::{
         unsupported_platform_message, CiFormat, CiProvider, Cli, Commands, ExportFormat,
-        GithubCommands,
+        GithubCommands, ReviewNonInteractive,
     };
-    use clap::Parser;
+    use clap::{CommandFactory, Parser};
+    use std::collections::BTreeMap;
+
+    fn prepare_man_command(
+        cmd: clap::Command,
+        display_path: String,
+        bin_path: String,
+    ) -> clap::Command {
+        cmd.display_name(display_path.clone())
+            .bin_name(bin_path.clone())
+            .mut_subcommands(|subcommand| {
+                let name = subcommand.get_name().to_string();
+                prepare_man_command(
+                    subcommand,
+                    format!("{display_path}-{name}"),
+                    format!("{bin_path} {name}"),
+                )
+            })
+    }
+
+    fn render_manpage(command: clap::Command) -> String {
+        let title = command
+            .get_display_name()
+            .unwrap_or_else(|| command.get_name())
+            .to_string();
+        let mut buffer = Vec::new();
+        clap_mangen::Man::new(command)
+            .title(title)
+            .date("2026-05-15")
+            .source(format!("runglass {}", env!("CARGO_PKG_VERSION")))
+            .manual("RunGlass Manual")
+            .render(&mut buffer)
+            .expect("render man page");
+        String::from_utf8(buffer).expect("man page utf8")
+    }
+
+    fn collect_manpages(command: &clap::Command, pages: &mut BTreeMap<String, String>) {
+        let display_name = command
+            .get_display_name()
+            .unwrap_or_else(|| command.get_name())
+            .to_string();
+        pages.insert(format!("{display_name}.1"), render_manpage(command.clone()));
+
+        for subcommand in command
+            .get_subcommands()
+            .filter(|command| !command.is_hide_set())
+        {
+            collect_manpages(subcommand, pages);
+        }
+    }
+
+    fn generated_manpages() -> BTreeMap<String, String> {
+        let mut command = prepare_man_command(
+            Cli::command().disable_help_subcommand(true),
+            "runglass".to_string(),
+            "runglass".to_string(),
+        );
+        command.build();
+
+        let mut pages = BTreeMap::new();
+        collect_manpages(&command, &mut pages);
+        pages
+    }
+
+    #[test]
+    fn checked_in_manpages_are_current() {
+        let generated = generated_manpages();
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("docs/man");
+
+        if std::env::var_os("RUNGLASS_UPDATE_MANPAGE").is_some() {
+            std::fs::create_dir_all(&dir).expect("create man dir");
+            for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+                if entry
+                    .path()
+                    .extension()
+                    .is_some_and(|extension| extension == "1")
+                {
+                    std::fs::remove_file(entry.path()).expect("remove stale man page");
+                }
+            }
+            for (file_name, contents) in generated {
+                std::fs::write(dir.join(file_name), contents).expect("write man page");
+            }
+            return;
+        }
+
+        let mut current = BTreeMap::new();
+        for entry in std::fs::read_dir(&dir).unwrap_or_else(|error| {
+            panic!(
+                "failed to read {}; run `RUNGLASS_UPDATE_MANPAGE=1 cargo test -p runglass --bin runglass checked_in_manpages_are_current` to generate man pages: {error}",
+                dir.display()
+            )
+        }) {
+            let entry = entry.expect("read man page entry");
+            if entry.path().extension().is_some_and(|extension| extension == "1") {
+                current.insert(
+                    entry.file_name().to_string_lossy().into_owned(),
+                    std::fs::read_to_string(entry.path()).expect("read man page"),
+                );
+            }
+        }
+
+        assert_eq!(
+            current.keys().collect::<Vec<_>>(),
+            generated.keys().collect::<Vec<_>>(),
+            "docs/man file list is stale; run `RUNGLASS_UPDATE_MANPAGE=1 cargo test -p runglass --bin runglass checked_in_manpages_are_current`"
+        );
+        for (file_name, expected) in generated {
+            assert_eq!(
+                current.get(&file_name),
+                Some(&expected),
+                "{file_name} is stale; run `RUNGLASS_UPDATE_MANPAGE=1 cargo test -p runglass --bin runglass checked_in_manpages_are_current`"
+            );
+        }
+    }
 
     #[test]
     fn report_accepts_documented_open_flag() {
@@ -1918,6 +2337,67 @@ mod tests {
         };
         assert!(deep);
         assert_eq!(command, vec!["cargo", "test", "--", "--nocapture"]);
+    }
+
+    #[test]
+    fn run_accepts_review_and_non_interactive_summary() {
+        let cli = Cli::try_parse_from([
+            "runglass",
+            "run",
+            "--review",
+            "--non-interactive",
+            "summary",
+            "--",
+            "sh",
+            "-c",
+            "echo review",
+        ])
+        .expect("parse review run command");
+
+        let Commands::Run {
+            review,
+            non_interactive,
+            command,
+            ..
+        } = cli.command
+        else {
+            panic!("expected run command");
+        };
+        assert!(review);
+        assert_eq!(non_interactive, ReviewNonInteractive::Summary);
+        assert_eq!(command, vec!["sh", "-c", "echo review"]);
+    }
+
+    #[test]
+    fn review_accepts_latest_and_non_interactive_summary() {
+        let cli = Cli::try_parse_from(["runglass", "review"]).expect("parse review default");
+        let Commands::Review {
+            receipt,
+            non_interactive,
+        } = cli.command
+        else {
+            panic!("expected review command");
+        };
+        assert_eq!(receipt, "latest");
+        assert_eq!(non_interactive, ReviewNonInteractive::Fail);
+
+        let cli = Cli::try_parse_from([
+            "runglass",
+            "review",
+            "abc123",
+            "--non-interactive",
+            "summary",
+        ])
+        .expect("parse review receipt summary");
+        let Commands::Review {
+            receipt,
+            non_interactive,
+        } = cli.command
+        else {
+            panic!("expected review command");
+        };
+        assert_eq!(receipt, "abc123");
+        assert_eq!(non_interactive, ReviewNonInteractive::Summary);
     }
 
     #[test]

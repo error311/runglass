@@ -56,8 +56,10 @@ jobs:
           target="x86_64-unknown-linux-gnu"
           name="runglass-${version}-${target}"
           mkdir -p "dist/${name}"
+          mkdir -p "dist/${name}/share/man/man1"
           cp target/release/runglass "dist/${name}/"
           cp README.md CHANGELOG.md LICENSE "dist/${name}/"
+          cp docs/man/*.1 "dist/${name}/share/man/man1/"
           tar -C dist -czf "dist/${name}.tar.gz" "${name}"
           sha256sum "dist/${name}.tar.gz" > "dist/${name}.tar.gz.sha256"
 
@@ -122,8 +124,10 @@ jobs:
           target="$(rustc -vV | sed -n 's/^host: //p')"
           name="runglass-${version}-${target}"
           mkdir -p "dist/${name}"
+          mkdir -p "dist/${name}/share/man/man1"
           cp target/release/runglass "dist/${name}/"
           cp README.md CHANGELOG.md LICENSE "dist/${name}/"
+          cp docs/man/*.1 "dist/${name}/share/man/man1/"
           tar -C dist -czf "dist/${name}.tar.gz" "${name}"
           shasum -a 256 "dist/${name}.tar.gz" > "dist/${name}.tar.gz.sha256"
 

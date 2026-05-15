@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.0 - 05/15/2026
+
+- Added `runglass run --review -- <command>` for a guided post-run flow that summarizes impact and offers keep, revert preview, supported file revert, export, or open-UI actions.
+- Added `runglass review [latest|receipt-id]` to reopen the guided review flow for an existing receipt.
+- Added `--non-interactive summary` for review mode so scripts and redirected terminals can print the review summary without hanging for input.
+- Added generated `man` pages for `runglass` and subcommands, with release archives packaging them under `share/man/man1/`.
+- Review mode preserves the wrapped command's non-zero exit status after review actions complete.
+- Documented the review workflow and reiterated that supported file revert does not undo Docker changes, network calls, database writes, global package-manager changes, external service mutations, or commands outside the watched working directory.
+
 ## v0.2.4 - 05/13/2026
 
 - Added macOS readiness CI that builds the workspace, tests the cross-platform CLI surface, smokes receipt inspection commands, and verifies live observation exits with the Linux-first guard.

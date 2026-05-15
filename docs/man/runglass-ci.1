@@ -1,0 +1,50 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH runglass-ci 1 2026-05-15 "runglass 0.3.0" "RunGlass Manual"
+.SH NAME
+runglass\-ci \- Run one command in CI and write receipt artifacts
+.SH SYNOPSIS
+\fBrunglass ci\fR [\fB\-\-deep\fR] [\fB\-\-provider\fR] [\fB\-\-out\fR] [\fB\-\-format\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fICOMMAND\fR> 
+.SH DESCRIPTION
+Run one command in CI and write receipt artifacts
+.SH OPTIONS
+.TP
+\fB\-\-deep\fR
+
+.TP
+\fB\-\-provider\fR \fI<PROVIDER>\fR [default: auto]
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+github
+.IP \(bu 2
+gitlab
+.IP \(bu 2
+generic
+.RE
+.TP
+\fB\-\-out\fR \fI<OUT>\fR [default: runglass\-receipt]
+
+.TP
+\fB\-\-format\fR \fI<FORMATS>\fR [default: html,json,markdown]
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+html
+.IP \(bu 2
+json
+.IP \(bu 2
+markdown
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+<\fICOMMAND\fR>
+

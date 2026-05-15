@@ -1,0 +1,59 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH runglass 1 2026-05-15 "runglass 0.3.0" "RunGlass Manual"
+.SH NAME
+runglass \- Run any command. Get a receipt for what changed.
+.SH SYNOPSIS
+\fBrunglass\fR [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] <\fIsubcommands\fR>
+.SH DESCRIPTION
+Run any command. Get a receipt for what changed.
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print version
+.SH SUBCOMMANDS
+.TP
+runglass\-run(1)
+Run one command and create a receipt
+.TP
+runglass\-open(1)
+Open a receipt in the local browser UI
+.TP
+runglass\-review(1)
+Review a saved receipt and choose keep/revert/export/open actions
+.TP
+runglass\-ci(1)
+Run one command in CI and write receipt artifacts
+.TP
+runglass\-report(1)
+.TP
+runglass\-list(1)
+.TP
+runglass\-export(1)
+.TP
+runglass\-doctor(1)
+Check local collector readiness and receipt storage
+.TP
+runglass\-validate(1)
+Validate a saved receipt or CI receipt directory
+.TP
+runglass\-snapshot(1)
+.TP
+runglass\-prune(1)
+.TP
+runglass\-delete(1)
+.TP
+runglass\-github(1)
+Detect GitHub context and post PR receipt comments
+.TP
+runglass\-pr\-comment(1)
+Post or preview a compact RunGlass receipt comment on a pull request
+.TP
+runglass\-revert(1)
+.TP
+runglass\-demo(1)
+.SH VERSION
+v0.3.0

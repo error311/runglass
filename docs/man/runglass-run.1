@@ -1,0 +1,46 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH runglass-run 1 2026-05-15 "runglass 0.3.0" "RunGlass Manual"
+.SH NAME
+runglass\-run \- Run one command and create a receipt
+.SH SYNOPSIS
+\fBrunglass run\fR [\fB\-\-open\fR] [\fB\-\-deep\fR] [\fB\-\-review\fR] [\fB\-\-non\-interactive\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fICOMMAND\fR> 
+.SH DESCRIPTION
+Run one command and create a receipt
+.SH OPTIONS
+.TP
+\fB\-\-open\fR
+
+.TP
+\fB\-\-deep\fR
+
+.TP
+\fB\-\-review\fR
+After the command exits, guide keep/revert/export/open actions
+.TP
+\fB\-\-non\-interactive\fR \fI<NON_INTERACTIVE>\fR [default: fail]
+Review\-mode behavior when stdin/stdout is not interactive
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+fail
+.IP \(bu 2
+summary
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+<\fICOMMAND\fR>
+
+.SH EXTRA
+RunGlass wraps one command and creates a receipt.
+
+Examples:
+  runglass run \-\- docker compose up \-d
+  runglass run docker compose up \-d
+  runglass run \-\-deep \-\- ./install.sh
+  runglass run \-\-review \-\- ./install.sh

@@ -79,6 +79,12 @@ runglass-<version>-<macos-host>-apple-darwin.tar.gz.sha256
 
 The macOS archive is for receipt inspection workflows only in this release; live command observation still exits with a clear Linux-first message.
 
+Release archives also include generated man pages under `share/man/man1/`:
+
+```bash
+man ./share/man/man1/runglass.1
+```
+
 For local development, install this checkout into your Cargo bin directory:
 
 ```bash
@@ -134,6 +140,13 @@ Wrap an AI agent command:
 runglass run --deep codex exec "fix this failing test"
 ```
 
+Run a command with a guided review before you decide what to keep:
+
+```bash
+runglass run --review -- ./install.sh
+runglass review latest
+```
+
 ## Why It Exists
 
 Terminal history shows what you ran.
@@ -173,13 +186,16 @@ runglass export latest --format ai
 Preview and apply supported file reverts:
 
 ```bash
+runglass run --review -- ./install.sh
 runglass revert latest --preview
 runglass revert latest --apply
 runglass revert latest --apply --skip-changed
 runglass open
 ```
 
-The web UI can preview file reverts, warn when files changed after the receipt ended, and apply supported reversions.
+Review mode summarizes the command impact, shows supported revert availability, and can keep changes, preview file reverts, apply supported file reverts, export receipt artifacts, or open the receipt UI. The web UI can also preview file reverts, warn when files changed after the receipt ended, and apply supported reversions.
+
+Use `runglass review latest` to reopen the same guided review flow for an existing receipt. Use `runglass run --review --non-interactive summary -- <command>` or `runglass review latest --non-interactive summary` in scripts so review mode prints the summary without waiting for input.
 
 ### What Revert Can And Cannot Undo
 
@@ -338,6 +354,10 @@ See [`.runglassignore.example`](https://github.com/error311/runglass/blob/main/.
 
 ```bash
 runglass list --query docker --risk medium --mode deep
+runglass run --review -- ./install.sh
+runglass run --review --non-interactive summary -- ./install.sh
+runglass review latest
+runglass review latest --non-interactive summary
 runglass open latest
 runglass open <receipt-id> --port 0
 runglass report latest --ai
