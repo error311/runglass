@@ -2151,7 +2151,7 @@ mod tests {
         let mut buffer = Vec::new();
         clap_mangen::Man::new(command)
             .title(title)
-            .date("2026-05-15")
+            .date("2026-05-28")
             .source(format!("runglass {}", env!("CARGO_PKG_VERSION")))
             .manual("RunGlass Manual")
             .render(&mut buffer)

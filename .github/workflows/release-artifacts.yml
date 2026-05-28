@@ -57,9 +57,11 @@ jobs:
           name="runglass-${version}-${target}"
           mkdir -p "dist/${name}"
           mkdir -p "dist/${name}/share/man/man1"
+          mkdir -p "dist/${name}/scripts"
           cp target/release/runglass "dist/${name}/"
           cp README.md CHANGELOG.md LICENSE "dist/${name}/"
           cp docs/man/*.1 "dist/${name}/share/man/man1/"
+          cp scripts/install-release.sh "dist/${name}/scripts/"
           tar -C dist -czf "dist/${name}.tar.gz" "${name}"
           sha256sum "dist/${name}.tar.gz" > "dist/${name}.tar.gz.sha256"
 
@@ -125,9 +127,11 @@ jobs:
           name="runglass-${version}-${target}"
           mkdir -p "dist/${name}"
           mkdir -p "dist/${name}/share/man/man1"
+          mkdir -p "dist/${name}/scripts"
           cp target/release/runglass "dist/${name}/"
           cp README.md CHANGELOG.md LICENSE "dist/${name}/"
           cp docs/man/*.1 "dist/${name}/share/man/man1/"
+          cp scripts/install-release.sh "dist/${name}/scripts/"
           tar -C dist -czf "dist/${name}.tar.gz" "${name}"
           shasum -a 256 "dist/${name}.tar.gz" > "dist/${name}.tar.gz.sha256"
 

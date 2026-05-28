@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.1 - 05/28/2026
+
+- Added `scripts/install-release.sh` for installing release archives into a user-selected prefix, including the `runglass` binary, generated man pages, and docs.
+- Release archives now include the installer script alongside the binary, README, changelog, license, and `share/man/man1/` pages.
+- Documented the difference between `cargo install` and release archive installation: Cargo installs the binary only, while release archives can install man pages.
+
 ## v0.3.0 - 05/15/2026
 
 - Added `runglass run --review -- <command>` for a guided post-run flow that summarizes impact and offers keep, revert preview, supported file revert, export, or open-UI actions.

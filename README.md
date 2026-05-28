@@ -68,6 +68,8 @@ Install from crates.io:
 cargo install runglass --locked
 ```
 
+Cargo installs the `runglass` binary only. Use a release archive if you also want generated man pages installed.
+
 Prebuilt release archives are published from tagged GitHub releases and include SHA-256 checksum files:
 
 ```text
@@ -83,6 +85,35 @@ Release archives also include generated man pages under `share/man/man1/`:
 
 ```bash
 man ./share/man/man1/runglass.1
+```
+
+Install a downloaded release archive into `~/.local`:
+
+```bash
+tar -xzf runglass-<version>-<target>.tar.gz
+cd runglass-<version>-<target>
+./scripts/install-release.sh
+```
+
+Or install directly from an archive path into a custom prefix:
+
+```bash
+PREFIX=/tmp/runglass-install ./scripts/install-release.sh ./runglass-<version>-<target>.tar.gz
+```
+
+If `~/.local/bin` and `~/.local/share/man` are on your path/manpath, this gives you:
+
+```bash
+runglass --version
+man runglass
+```
+
+Uninstall a default user-prefix install:
+
+```bash
+rm -f "$HOME/.local/bin/runglass"
+rm -f "$HOME/.local/share/man/man1"/runglass*.1
+rm -rf "$HOME/.local/share/doc/runglass"
 ```
 
 For local development, install this checkout into your Cargo bin directory:
