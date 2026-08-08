@@ -1,0 +1,31 @@
+# Maintainer: Ryan <error311 at gmail dot com>
+
+pkgname=runglass-bin
+pkgver=@PKGVER@
+pkgrel=1
+pkgdesc='Run one command and get a live receipt of what happened'
+arch=('x86_64')
+url='https://github.com/error311/runglass'
+license=('MIT')
+depends=('glibc' 'libgcc')
+optdepends=(
+  'docker: Docker state collection'
+  'git: GitHub repository and pull request detection'
+  'iproute2: normal-mode socket observation through ss'
+  'strace: deep process and network observation'
+)
+provides=("runglass=${pkgver}")
+conflicts=('runglass')
+options=('!debug')
+source=("runglass-${pkgver}-${CARCH}-unknown-linux-gnu.tar.gz::${url}/releases/download/v${pkgver}/runglass-${pkgver}-${CARCH}-unknown-linux-gnu.tar.gz")
+sha256sums=('@SHA256@')
+
+package() {
+  local release_root="${srcdir}/runglass-${pkgver}-${CARCH}-unknown-linux-gnu"
+
+  install -Dm755 "${release_root}/runglass" "${pkgdir}/usr/bin/runglass"
+  install -Dm644 "${release_root}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 "${release_root}/README.md" "${pkgdir}/usr/share/doc/runglass/README.md"
+  install -Dm644 "${release_root}/CHANGELOG.md" "${pkgdir}/usr/share/doc/runglass/CHANGELOG.md"
+  install -Dm644 "${release_root}"/share/man/man1/*.1 -t "${pkgdir}/usr/share/man/man1/"
+}

@@ -11,8 +11,8 @@ Environment:
 
 Examples:
   ./scripts/install-release.sh
-  PREFIX=/tmp/runglass-install ./scripts/install-release.sh ./runglass-0.3.1-x86_64-unknown-linux-gnu.tar.gz
-  PREFIX="$HOME/.local" ./scripts/install-release.sh https://github.com/error311/runglass/releases/download/v0.3.1/runglass-0.3.1-x86_64-unknown-linux-gnu.tar.gz
+  PREFIX=/tmp/runglass-install ./scripts/install-release.sh ./runglass-0.3.2-x86_64-unknown-linux-gnu.tar.gz
+  PREFIX="$HOME/.local" ./scripts/install-release.sh https://github.com/error311/runglass/releases/download/v0.3.2/runglass-0.3.2-x86_64-unknown-linux-gnu.tar.gz
 USAGE
 }
 
@@ -50,7 +50,7 @@ download() {
     url=$1
     out=$2
     need_cmd curl
-    curl -fsSL "$url" -o "$out"
+    curl --connect-timeout 15 --max-time 300 --retry 3 --retry-all-errors -fsSL "$url" -o "$out"
 }
 
 find_release_root() {
@@ -121,7 +121,8 @@ main() {
     need_cmd awk
 
     source=${1:-}
-    tmp=${TMPDIR:-/tmp}/runglass-install.$$
+    need_cmd mktemp
+    tmp=$(mktemp -d "${TMPDIR:-/tmp}/runglass-install.XXXXXX")
     trap 'rm -rf "$tmp"' EXIT INT TERM
 
     if [ -z "$source" ]; then
@@ -132,7 +133,6 @@ main() {
 
     case "$source" in
         http://*|https://*)
-            mkdir -p "$tmp"
             archive="$tmp/runglass.tar.gz"
             checksum="$archive.sha256"
             echo "Downloading $source"

@@ -68,6 +68,8 @@ Install from crates.io:
 cargo install runglass --locked
 ```
 
+On Arch Linux, RunGlass is also prepared for installation through the `runglass-bin` AUR package. Until the initial AUR package is published, build the package recipe from this repository as described in [`packaging/arch/README.md`](packaging/arch/README.md). The package installs the binary, license, documentation, and generated man pages.
+
 Cargo installs the `runglass` binary only. Use a release archive if you also want generated man pages installed.
 
 Prebuilt release archives are published from tagged GitHub releases and include SHA-256 checksum files:

@@ -1,0 +1,95 @@
+name: Publish AUR Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Published RunGlass version without the leading v"
+        required: true
+        type: string
+      publish:
+        description: "Push the verified package metadata to the AUR"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Verify and optionally publish runglass-bin
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: v${{ inputs.version }}
+
+      - name: Prepare and verify package in Arch Linux
+        env:
+          RUNGLASS_VERSION: ${{ inputs.version }}
+        run: |
+          docker run --rm \
+            --volume "$PWD:/workspace" \
+            --workdir /workspace \
+            archlinux:base-devel \
+            bash -euo pipefail -c '
+              pacman -Syu --noconfirm --needed curl namcap
+              useradd --create-home builder
+              chown -R builder:builder /workspace
+              runuser -u builder -- ./packaging/arch/verify-package.sh "$1"
+              runuser -u builder -- namcap \
+                packaging/arch/build/runglass-bin/PKGBUILD \
+                "packaging/arch/build/runglass-bin/runglass-bin-$1-1-x86_64.pkg.tar.zst"
+            ' bash "$RUNGLASS_VERSION"
+
+      - name: Upload generated AUR metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: runglass-bin-aur-metadata-${{ inputs.version }}
+          path: |
+            packaging/arch/build/runglass-bin/PKGBUILD
+            packaging/arch/build/runglass-bin/.SRCINFO
+          if-no-files-found: error
+
+      - name: Publish to AUR
+        if: ${{ inputs.publish }}
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          RUNGLASS_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -z "$AUR_SSH_PRIVATE_KEY" ]; then
+            echo "::error::AUR_SSH_PRIVATE_KEY is not configured"
+            exit 1
+          fi
+
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > "$HOME/.ssh/runglass-aur"
+          chmod 600 "$HOME/.ssh/runglass-aur"
+          trap 'rm -f "$HOME/.ssh/runglass-aur"' EXIT
+          ssh-keyscan -t ed25519 aur.archlinux.org > "$HOME/.ssh/known_hosts"
+          aur_fingerprint=$(ssh-keygen -lf "$HOME/.ssh/known_hosts" | awk '{print $2}')
+          if [ "$aur_fingerprint" != "SHA256:RFzBCUItH9LZS0cKB5UE6ceAYhBD5C8GeOBip8Z11+4" ]; then
+            echo "::error::AUR SSH host key fingerprint did not match the published fingerprint"
+            exit 1
+          fi
+
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/runglass-aur -o IdentitiesOnly=yes"
+          git -c init.defaultBranch=master clone ssh://aur@aur.archlinux.org/runglass-bin.git aur-repository
+          cp packaging/arch/build/runglass-bin/PKGBUILD aur-repository/PKGBUILD
+          cp packaging/arch/build/runglass-bin/.SRCINFO aur-repository/.SRCINFO
+
+          git -C aur-repository config user.name "Ryan"
+          git -C aur-repository config user.email "error311@gmail.com"
+          git -C aur-repository add PKGBUILD .SRCINFO
+
+          if git -C aur-repository diff --cached --quiet; then
+            echo "AUR metadata is already current for v$RUNGLASS_VERSION"
+            exit 0
+          fi
+
+          git -C aur-repository commit -m "Update to $RUNGLASS_VERSION"
+          git -C aur-repository push origin HEAD:master

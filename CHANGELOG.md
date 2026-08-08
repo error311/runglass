@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.2 - 08/08/2026
+
+- Added a checksum-pinned `runglass-bin` Arch package recipe that installs the release binary, generated man pages, documentation, and MIT license using Arch filesystem conventions.
+- Added package generation, local `makepkg` verification, and guarded AUR publication tooling for tagged GitHub releases.
+- Documented first-time AUR setup, dedicated SSH key handling, `.SRCINFO` generation, package inspection, and manual publication safeguards.
+- Hardened the release installer by creating its temporary workspace with `mktemp`.
+
 ## v0.3.1 - 05/28/2026
 
 - Added `scripts/install-release.sh` for installing release archives into a user-selected prefix, including the `runglass` binary, generated man pages, and docs.
