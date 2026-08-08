@@ -2,6 +2,7 @@
 name = "runglass"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
@@ -12,8 +13,8 @@ description = "Run one command and get a live receipt of what happened."
 anyhow = "1.0"
 chrono = "0.4"
 clap = { version = "4.5", features = ["derive"] }
-runglass-core = { path = "../runglass-core", version = "0.3.2" }
-runglass-web = { path = "../runglass-web", version = "0.3.2" }
+runglass-core = { path = "../runglass-core", version = "0.3.3" }
+runglass-web = { path = "../runglass-web", version = "0.3.3" }
 serde_json = "1.0"
 ureq = { version = "2.12", features = ["json"] }
 

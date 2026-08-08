@@ -18,7 +18,7 @@ permissions:
 jobs:
   linux:
     name: Linux x86_64
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Resolve tag
@@ -63,14 +63,20 @@ jobs:
           cp docs/man/*.1 "dist/${name}/share/man/man1/"
           cp scripts/install-release.sh "dist/${name}/scripts/"
           tar -C dist -czf "dist/${name}.tar.gz" "${name}"
-          sha256sum "dist/${name}.tar.gz" > "dist/${name}.tar.gz.sha256"
+          (cd dist && sha256sum "${name}.tar.gz" > "${name}.tar.gz.sha256")
+
+      - name: Package Debian artifact
+        run: |
+          tag="${{ steps.release.outputs.tag }}"
+          version="${tag#v}"
+          ./packaging/debian/verify-package.sh "$version" target/release/runglass dist
 
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${{ steps.release.outputs.tag }}"
-          gh release upload "${tag}" dist/*.tar.gz dist/*.sha256 --clobber
+          gh release upload "${tag}" dist/*.tar.gz dist/*.deb dist/*.sha256 --clobber
 
   macos:
     name: macOS
@@ -133,7 +139,7 @@ jobs:
           cp docs/man/*.1 "dist/${name}/share/man/man1/"
           cp scripts/install-release.sh "dist/${name}/scripts/"
           tar -C dist -czf "dist/${name}.tar.gz" "${name}"
-          shasum -a 256 "dist/${name}.tar.gz" > "dist/${name}.tar.gz.sha256"
+          (cd dist && shasum -a 256 "${name}.tar.gz" > "${name}.tar.gz.sha256")
 
       - name: Upload release assets
         env:

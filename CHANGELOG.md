@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.3 - 08/08/2026
+
+- Changed generated man-page subcommand lists to show executable CLI syntax such as `runglass run` and `runglass github detect` instead of presenting hyphenated manual-page names as commands.
+- Added an `amd64` Debian package containing the release binary, compressed man pages, documentation, copyright notice, and SHA-256 checksum.
+- Added Ubuntu 22.04 package CI covering package metadata, install, version output, man-page rendering, package removal, and post-removal file checks.
+- Declared Rust 1.86 as the minimum supported Rust version for all three crates and added a dedicated MSRV workspace check.
+- Pinned Linux release builds to Ubuntu 22.04 so the Debian package's `libc6` dependency matches the release build environment.
+- Made release checksum files use portable artifact basenames so they work after download with `sha256sum --check`.
+
 ## v0.3.2 - 08/08/2026
 
 - Added a checksum-pinned `runglass-bin` Arch package recipe that installs the release binary, generated man pages, documentation, and MIT license using Arch filesystem conventions.

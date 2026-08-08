@@ -511,13 +511,13 @@ fn human_size(bytes: u64) -> String {
     const MIB: u64 = 1024 * 1024;
     const KIB: u64 = 1024;
     if bytes >= MIB {
-        if bytes.is_multiple_of(MIB) {
+        if bytes % MIB == 0 {
             format!("{} MiB", bytes / MIB)
         } else {
             format!("{:.1} MiB", bytes as f64 / MIB as f64)
         }
     } else if bytes >= KIB {
-        if bytes.is_multiple_of(KIB) {
+        if bytes % KIB == 0 {
             format!("{} KiB", bytes / KIB)
         } else {
             format!("{:.1} KiB", bytes as f64 / KIB as f64)

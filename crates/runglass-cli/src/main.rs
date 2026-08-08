@@ -2148,6 +2148,15 @@ mod tests {
             .get_display_name()
             .unwrap_or_else(|| command.get_name())
             .to_string();
+        let subcommand_terms = command
+            .get_subcommands()
+            .filter(|subcommand| !subcommand.is_hide_set())
+            .filter_map(|subcommand| {
+                let manual_name = subcommand.get_display_name()?.replace('-', "\\-");
+                let invocation = subcommand.get_bin_name()?.replace('-', "\\-");
+                Some((format!("{manual_name}(1)"), format!("\\fB{invocation}\\fR")))
+            })
+            .collect::<Vec<_>>();
         let mut buffer = Vec::new();
         clap_mangen::Man::new(command)
             .title(title)
@@ -2156,7 +2165,11 @@ mod tests {
             .manual("RunGlass Manual")
             .render(&mut buffer)
             .expect("render man page");
-        String::from_utf8(buffer).expect("man page utf8")
+        let mut rendered = String::from_utf8(buffer).expect("man page utf8");
+        for (manual_name, invocation) in subcommand_terms {
+            rendered = rendered.replace(&manual_name, &invocation);
+        }
+        rendered
     }
 
     fn collect_manpages(command: &clap::Command, pages: &mut BTreeMap<String, String>) {
@@ -2239,6 +2252,15 @@ mod tests {
                 "{file_name} is stale; run `RUNGLASS_UPDATE_MANPAGE=1 cargo test -p runglass --bin runglass checked_in_manpages_are_current`"
             );
         }
+    }
+
+    #[test]
+    fn root_manpage_uses_cli_subcommand_syntax() {
+        let mut pages = generated_manpages();
+        let root = pages.remove("runglass.1").expect("root man page");
+
+        assert!(root.contains("\\fBrunglass run\\fR"));
+        assert!(!root.contains("runglass\\-run(1)"));
     }
 
     #[test]

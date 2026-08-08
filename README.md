@@ -70,15 +70,26 @@ cargo install runglass --locked
 
 On Arch Linux, RunGlass is also prepared for installation through the `runglass-bin` AUR package. Until the initial AUR package is published, build the package recipe from this repository as described in [`packaging/arch/README.md`](packaging/arch/README.md). The package installs the binary, license, documentation, and generated man pages.
 
+Debian and Ubuntu users can install the checksum-protected release artifact directly:
+
+```bash
+sha256sum --check runglass_0.3.3_amd64.deb.sha256
+sudo apt install ./runglass_0.3.3_amd64.deb
+```
+
+See the [Debian packaging guide](packaging/debian/README.md) for package contents, removal, and local verification.
+
 Cargo installs the `runglass` binary only. Use a release archive if you also want generated man pages installed.
 
-Prebuilt release archives are published from tagged GitHub releases and include SHA-256 checksum files:
+Prebuilt release artifacts are published from tagged GitHub releases and include SHA-256 checksum files:
 
 ```text
 runglass-<version>-x86_64-unknown-linux-gnu.tar.gz
 runglass-<version>-x86_64-unknown-linux-gnu.tar.gz.sha256
 runglass-<version>-<macos-host>-apple-darwin.tar.gz
 runglass-<version>-<macos-host>-apple-darwin.tar.gz.sha256
+runglass_<version>_amd64.deb
+runglass_<version>_amd64.deb.sha256
 ```
 
 The macOS archive is for receipt inspection workflows only in this release; live command observation still exits with a clear Linux-first message.

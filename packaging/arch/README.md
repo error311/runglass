@@ -17,16 +17,16 @@ The package installs:
 Run this from the repository root after the GitHub release assets for the version exist:
 
 ```bash
-./packaging/arch/prepare-package.sh 0.3.2
+./packaging/arch/prepare-package.sh 0.3.3
 cd packaging/arch/build/runglass-bin
 makepkg -sf
-pacman -Qlp runglass-bin-0.3.2-1-x86_64.pkg.tar.zst
+pacman -Qlp runglass-bin-0.3.3-1-x86_64.pkg.tar.zst
 ```
 
 For the complete package-content smoke test:
 
 ```bash
-./packaging/arch/verify-package.sh 0.3.2
+./packaging/arch/verify-package.sh 0.3.3
 ```
 
 The preparation script downloads the release's published SHA-256 file, renders `PKGBUILD` from `PKGBUILD.in`, and generates `.SRCINFO` with `makepkg`. Generated package files remain under the ignored `packaging/arch/build/` directory.
@@ -36,7 +36,7 @@ For an offline or release-workflow invocation that has already verified the chec
 To install the locally built package:
 
 ```bash
-sudo pacman -U packaging/arch/build/runglass-bin/runglass-bin-0.3.2-1-x86_64.pkg.tar.zst
+sudo pacman -U packaging/arch/build/runglass-bin/runglass-bin-0.3.3-1-x86_64.pkg.tar.zst
 runglass --version
 man runglass
 ```
